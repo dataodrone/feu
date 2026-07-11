@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Trail Sadirac 2026 — Viewer terrain et reconnaissance des parcours</title>
+<meta name="description" content="Viewer terrain pour reconnaître et partager les trois parcours du Trail de Sadirac : 8 km, 12 km et 21 km, carte 3D, GPS, profil et exports.">
+<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.7.1/dist/maplibre-gl.js"></script>
+<style>
+:root{
+  --bg:#08141a;--panel:#10252d;--panel2:#15313b;--ink:#eef8fb;--muted:#a8c0c7;
+  --accent:#ffb000;--green:#32d296;--red:#ff6b6b;--blue:#4dabf7;--orange:#ff922b;--pink:#f06595;
+  --line:#28505a;--shadow:0 16px 40px rgba(0,0,0,.28);--radius:18px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select{font:inherit}
+#app{height:100%;display:grid;grid-template-columns:355px 1fr;grid-template-rows:1fr 272px;overflow:hidden}
+#map{grid-column:2;grid-row:1;background:#cdd7d8}
+#sidebar{grid-column:1;grid-row:1/3;overflow:auto;background:linear-gradient(180deg,#10252d,#091a20);border-right:1px solid rgba(255,255,255,.08);padding:14px;z-index:6}
+#profilePanel{grid-column:2;grid-row:2;background:rgba(8,20,26,.97);border-top:1px solid rgba(255,255,255,.1);display:grid;grid-template-columns:1fr 320px;gap:14px;padding:12px 14px;z-index:4}
+.brand{display:flex;gap:11px;align-items:center;margin-bottom:14px}.brand-mark{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(135deg,#ffb000,#ff6b00);font-size:22px;box-shadow:var(--shadow)}.brand h1{font-size:1.05rem;margin:0}.brand p{font-size:.75rem;color:var(--muted);margin:2px 0 0}
+.panel{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:12px;margin-bottom:11px}
+.panel h2{font-size:.88rem;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px;color:#d7f2f5}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:7px 0}
+.row.wrap{flex-wrap:wrap}
+.small{font-size:.77rem;color:var(--muted)}
+.btn{appearance:none;border:1px solid rgba(255,255,255,.13);background:#17343d;color:var(--ink);border-radius:11px;padding:9px 10px;cursor:pointer;font-weight:700;font-size:.82rem;transition:.18s}
+.btn:hover{background:#22505b;transform:translateY(-1px)}
+.btn.primary{background:#ed8c00;border-color:#ffb000;color:#142128}.btn.primary:hover{background:#ffb000}
+.btn.danger{background:#4a2329;border-color:#73414a}
+.btn.full{width:100%}
+select,input[type="range"]{width:100%}
+select{background:#0d2229;border:1px solid #315863;color:var(--ink);padding:8px;border-radius:10px}
+input[type="range"]{accent-color:var(--accent)}
+.layer-row,.track-row{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin:7px 0;font-size:.83rem}
+.layer-row input,.track-row input{accent-color:var(--accent)}
+.opacity{width:70px!important}
+.swatch{width:11px;height:11px;border-radius:50%}
+.status{border-radius:11px;background:#0a1b21;padding:9px 10px;color:#c8dde1;font-size:.76rem;border:1px solid rgba(255,255,255,.07)}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.stat{background:#0a1b21;border-radius:11px;padding:8px;border:1px solid rgba(255,255,255,.06)}
+.stat b{display:block;font-size:1.05rem;color:#fff}.stat span{display:block;color:var(--muted);font-size:.69rem;text-transform:uppercase;letter-spacing:.05em}
+.progress-wrap{position:absolute;left:385px;right:20px;top:16px;z-index:3;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:rgba(5,18,23,.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:10px 12px;box-shadow:var(--shadow)}
+.progress-wrap .label{font-size:.78rem;font-weight:800;white-space:nowrap}.progress-wrap output{font-variant-numeric:tabular-nums;font-size:.78rem;color:#ffe0a0;white-space:nowrap}
+#profileCanvas{width:100%;height:100%;min-height:220px;background:#08171c;border-radius:14px;border:1px solid rgba(255,255,255,.08)}
+.profile-side{display:flex;flex-direction:column;gap:8px}
+.profile-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.table-wrap{overflow:auto;max-height:220px}
+table{width:100%;border-collapse:collapse;font-size:.72rem}th,td{padding:6px 5px;border-bottom:1px solid rgba(255,255,255,.08);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}th{color:#9eb6bd;font-weight:700}
+.maplibregl-ctrl-group{border-radius:10px!important;overflow:hidden}
+.maplibregl-popup-content{background:#10252d;color:white;border-radius:10px;padding:10px}
+.legend{position:absolute;right:16px;top:76px;z-index:2;background:rgba(5,18,23,.83);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:9px 11px;font-size:.75rem;backdrop-filter:blur(8px)}
+.legend div{display:flex;align-items:center;gap:7px;margin:4px 0}
+.hint{line-height:1.35}
+#toggleSidebar{display:none}
+
+.runner-marker{width:30px;height:30px;border-radius:50%;background:#fff;border:4px solid #f5a623;box-shadow:0 0 0 6px rgba(245,166,35,.28),0 3px 12px rgba(0,0,0,.35);display:grid;place-items:center;font-size:15px;line-height:1;transform:translate(-50%,-50%)}
+.runner-marker::after{content:"🏃";transform:translateY(-1px)}
+.draw-active{background:#f5a623!important;color:#17302c!important;border-color:#ffd071!important}
+
+@media (max-width:920px){
+  #app{display:block;overflow:auto;height:auto;min-height:100%}
+  #sidebar{position:fixed;left:0;top:0;bottom:0;width:min(88vw,355px);transform:translateX(-100%);transition:.22s;z-index:12}
+  #sidebar.open{transform:translateX(0)}
+  #toggleSidebar{display:block;position:fixed;top:12px;left:12px;z-index:13}
+  #map{height:62vh}
+  #profilePanel{display:block;height:auto;padding:10px}
+  .profile-side{margin-top:10px}.progress-wrap{left:58px;right:8px;top:12px}.progress-wrap .label{display:none}.legend{top:70px;right:8px}
+}
+
+/* --- V2 dashboard course : interface claire et profil renforcé --- */
+:root{
+  --bg:#edf3ef;--panel:#14362e;--panel2:#1c473d;--ink:#17302c;--muted:#63766f;
+  --accent:#f5a623;--green:#1f9d73;--red:#db5b52;--blue:#3487d4;--orange:#ee8a32;--pink:#cf5b91;
+  --line:#d7e3de;--shadow:0 14px 34px rgba(33,65,56,.15);--radius:18px;
+}
+html,body{background:var(--bg);color:var(--ink)}
+#app{grid-template-columns:330px 1fr;grid-template-rows:1fr 360px;background:#e8efec}
+#sidebar{background:linear-gradient(180deg,#173d34,#0f2c27);border-right:1px solid rgba(255,255,255,.14);padding:14px;color:#f4fffb}
+.brand-mark{background:linear-gradient(135deg,#f6bc39,#f27a25)}
+.brand h1{font-size:1.03rem;color:#fff}.brand p{color:#bdd4cd}
+.panel{background:rgba(255,255,255,.065);border-color:rgba(255,255,255,.12)}
+.panel h2{color:#f2fff9}.small{color:#b9d2cb}.status{background:rgba(0,0,0,.16);color:#d6e8e2;border-color:rgba(255,255,255,.09)}
+.btn{background:#25574d;color:#f7fffd;border-color:rgba(255,255,255,.12)}.btn:hover{background:#337064}.btn.primary{background:#f5a623;color:#17302c;border-color:#ffd071}.btn.danger{background:#754044}
+select{background:#10332c;color:#effff9;border-color:#47786d}
+.stats-grid .stat{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.10)}
+.stats-grid .stat b{color:#fff}.stats-grid .stat span{color:#bdd4cd}
+#profilePanel{background:#f7faf8;border-top:1px solid #d5e2de;display:grid;grid-template-columns:minmax(0,1fr) 308px;gap:14px;padding:13px 14px 12px;box-shadow:0 -10px 24px rgba(21,52,46,.08)}
+.profile-main{min-width:0;display:grid;grid-template-rows:auto minmax(0,1fr) 82px auto;gap:7px}
+.profile-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.profile-title{font-weight:900;font-size:.97rem;color:#17302c}.profile-subtitle{font-size:.74rem;color:#6c7d77}
+.profile-badges{display:flex;gap:6px;flex-wrap:wrap}.profile-badge{border:1px solid #d8e4df;background:#fff;border-radius:999px;padding:5px 9px;font-size:.7rem;font-weight:800;color:#49655d}
+#profileCanvas,#slopeCanvas{width:100%;height:100%;display:block;background:#fff;border-radius:14px;border:1px solid #dce7e3}
+#profileCanvas{min-height:205px}#slopeCanvas{min-height:75px}
+.profile-legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:.7rem;color:#5d716a;padding:0 3px}.profile-legend span{display:flex;align-items:center;gap:5px}.profile-legend i{width:13px;height:7px;border-radius:99px;display:inline-block}
+.profile-side{background:#173d34;color:white;border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:8px;overflow:auto}
+.profile-side .stats-grid .stat{background:rgba(255,255,255,.10)}
+.profile-side .status{background:rgba(0,0,0,.16)}
+.progress-wrap{left:360px;right:20px;top:16px;background:rgba(20,54,46,.93);border-color:rgba(255,255,255,.15)}
+.legend{background:rgba(20,54,46,.90);border-color:rgba(255,255,255,.15);color:#fff}
+.chart-note{font-size:.7rem;color:#6c7d77;padding-left:3px}
+@media(max-width:920px){#app{display:block}.profile-main{grid-template-rows:auto 245px 84px auto}#profilePanel{display:block}.profile-side{margin-top:10px}.progress-wrap{left:58px}.legend{top:72px}.chart-note{font-size:.68rem}}
+
+
+/* --- V3 : aide utilisateur et déplacement manuel dans le profil --- */
+.help-fab{position:fixed;right:18px;bottom:18px;z-index:30;width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.82);background:#f5a623;color:#17302c;box-shadow:0 12px 30px rgba(0,0,0,.24);font-size:1.45rem;font-weight:950;display:grid;place-items:center;cursor:pointer}
+.help-fab:hover{transform:translateY(-2px);background:#ffc04e}
+.help-inline{display:inline-flex;align-items:center;gap:6px}
+.help-inline .btn{padding:7px 9px}
+.help-modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(4,17,20,.62);backdrop-filter:blur(4px);padding:18px}
+.help-modal.open{display:flex}
+.help-dialog{width:min(980px,96vw);max-height:min(88vh,820px);overflow:auto;background:#f9fcfa;color:#17302c;border-radius:22px;box-shadow:0 20px 65px rgba(0,0,0,.32);border:1px solid #d6e4df}
+.help-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#173d34;color:#fff;padding:17px 20px;border-radius:22px 22px 0 0}
+.help-head h2{margin:0;font-size:1.15rem}.help-close{border:0;background:rgba(255,255,255,.13);color:#fff;border-radius:11px;width:38px;height:38px;font-size:1.3rem;cursor:pointer}
+.help-body{padding:18px 20px 22px}.help-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.help-card{background:#fff;border:1px solid #dce7e3;border-radius:15px;padding:13px 14px}.help-card h3{margin:0 0 7px;font-size:.95rem;color:#173d34}.help-card p,.help-card li{font-size:.84rem;color:#526861;line-height:1.42}.help-card ul{margin:6px 0 0;padding-left:18px}.help-tip{margin-top:12px;background:#fff4da;border:1px solid #f1d487;border-radius:14px;padding:11px 13px;font-size:.85rem;color:#624812}
+#profileCanvas,#slopeCanvas{cursor:crosshair;touch-action:none}
+.profile-drag-note{font-size:.72rem;color:#315b51;font-weight:800;background:#eef7f3;border:1px solid #d2e5df;border-radius:999px;padding:5px 9px}
+@media(max-width:720px){.help-grid{grid-template-columns:1fr}.help-fab{right:12px;bottom:12px;width:48px;height:48px}.help-dialog{max-height:92vh}.help-body{padding:14px}.help-head{padding:14px 15px}}
+
+
+/* --- V4 : aide dans le panneau cartographique et altitudes MNT fiables --- */
+.legend.dynamic-panel{min-width:155px}
+.legend-head{display:flex!important;align-items:center;justify-content:space-between;gap:8px;margin:0 0 7px!important;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.18)}
+.legend-help{width:29px;height:29px;border-radius:50%;border:1px solid rgba(255,255,255,.7);background:#f5a623;color:#17302c;font-weight:950;font-size:1rem;cursor:pointer;display:grid;place-items:center;padding:0}
+.legend-help:hover{background:#ffc04e;transform:translateY(-1px)}
+.profile-loading{font-size:.76rem;color:#5f756e}
+@media(max-width:920px){.legend.dynamic-panel{right:8px;top:72px}.legend-help{width:31px;height:31px}}
+
+
+
+/* --- V6 : panneau terrain simplifié + outils GPS dans la carte --- */
+.terrain-panel{border-color:rgba(245,166,35,.34);box-shadow:inset 0 0 0 1px rgba(245,166,35,.10)}
+.terrain-panel h2{margin-bottom:8px}
+.terrain-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:0}
+.terrain-card{background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:8px;min-height:54px}
+.terrain-card b{display:block;font-size:1rem;color:#fff;font-variant-numeric:tabular-nums}.terrain-card span{display:block;color:#bdd4cd;font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.terrain-status{margin-top:8px;border-left:4px solid #f5a623}.terrain-status.ok{border-left-color:#1f9d73}.terrain-status.warn{border-left-color:#f5a623}.terrain-status.ko{border-left-color:#db5b52}
+.share-note{background:#fff4da;color:#5a4212;border:1px solid #f1d487;border-radius:13px;padding:8px 9px;font-size:.74rem;line-height:1.32;margin-top:8px}
+.share-note b{color:#17302c}
+.map-tools{position:absolute;right:16px;top:188px;z-index:7;display:flex;flex-direction:column;gap:7px;align-items:stretch}
+.map-tool{appearance:none;border:1px solid rgba(255,255,255,.22);background:rgba(20,54,46,.94);color:#fff;border-radius:13px;padding:9px 11px;box-shadow:0 10px 24px rgba(0,0,0,.20);font-size:.82rem;font-weight:900;cursor:pointer;backdrop-filter:blur(8px);min-width:128px;text-align:left}
+.map-tool:hover{background:#25574d;transform:translateY(-1px)}
+.map-tool.primary{background:#f5a623;color:#17302c;border-color:#ffd071;text-align:center;font-size:.9rem}
+.map-tool.active{background:#1f9d73;color:#fff;border-color:#7be0bd}
+.map-tool.disabled{opacity:.58}
+.map-tool small{display:block;font-size:.64rem;font-weight:700;opacity:.86;margin-top:2px}
+.maplibregl-ctrl-geolocate{display:none!important}
+@media(max-width:920px){.terrain-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.terrain-card b{font-size:.95rem}.map-tools{right:8px;top:128px}.map-tool{min-width:118px;padding:9px 10px;font-size:.78rem}.map-tool.primary{font-size:.86rem}}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <button id="toggleSidebar" class="btn">☰</button>
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">⛰️</div>
+      <div><h1>Trail Sadirac — viewer terrain</h1><p>Version partageable · 3 parcours · bouton GPS carte</p></div>
+    </div>
+<section class="panel">
+      <h2>Parcours</h2>
+      <div class="track-row"><input type="checkbox" data-trackvis="8 km" checked><span><i class="swatch" style="background:#4dabf7;display:inline-block"></i> 8 km</span><small id="dist-8 km">—</small></div>
+      <div class="track-row"><input type="checkbox" data-trackvis="12 km" checked><span><i class="swatch" style="background:#ff922b;display:inline-block"></i> 12 km</span><small id="dist-12 km">—</small></div>
+      <div class="track-row"><input type="checkbox" data-trackvis="21 km" checked><span><i class="swatch" style="background:#f06595;display:inline-block"></i> 21 km</span><small id="dist-21 km">—</small></div>
+      <div class="row"><label class="small" for="activeTrack">Profil analysé</label></div>
+      <select id="activeTrack"></select>
+      <div class="row wrap">
+        <button class="btn" id="zoomTrack">Zoom parcours</button>
+        <label class="btn" style="cursor:pointer">Importer GeoJSON<input id="importGeoJSON" type="file" accept=".geojson,.json" hidden></label>
+      </div>
+    </section>
+
+    <section class="panel terrain-panel">
+      <h2>Terrain GPS</h2>
+      <div class="terrain-grid">
+        <div class="terrain-card"><b id="terrain-dist">—</b><span>Écart trace</span></div>
+        <div class="terrain-card"><b id="terrain-km">—</b><span>Km proche</span></div>
+        <div class="terrain-card"><b id="terrain-accuracy">—</b><span>Précision GPS</span></div>
+        <div class="terrain-card"><b id="terrain-route">—</b><span>Parcours actif</span></div>
+      </div>
+      <div class="status terrain-status hint" id="terrain-status">GPS inactif. Utilisez le bouton 📍 Localiser placé directement sur la carte.</div>
+      <div class="share-note"><b>Important mobile :</b> sur iPhone/Android, le GPS du navigateur fonctionne surtout via une page HTTPS. Si le fichier est ouvert localement, le GPS peut rester bloqué même si la localisation du téléphone est activée.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Fonds de carte</h2>
+      <div class="layer-row"><input type="radio" name="basemap" value="base-osm" checked><span>OSM standard</span><span></span></div>
+      <div class="layer-row"><input type="radio" name="basemap" value="base-topo"><span>OpenTopoMap</span><span></span></div>
+      <div class="layer-row"><input type="radio" name="basemap" value="base-ign-plan"><span>IGN Plan</span><span></span></div>
+      <div class="layer-row"><input type="radio" name="basemap" value="base-ign-ortho"><span>IGN orthophoto</span><span></span></div>
+      <div class="layer-row"><input type="radio" name="basemap" value="base-esri"><span>Aérienne alternative</span><span></span></div>
+    </section>
+
+    <section class="panel">
+      <h2>Couches complémentaires</h2>
+      <div class="layer-row"><input type="checkbox" data-layer="hillshade" checked><span>Ombrage du relief</span><input class="opacity" data-opacity="hillshade" type="range" min="0" max="1" value=".45" step=".05"></div>
+      <div class="layer-row"><input type="checkbox" data-layer="overlay-contours"><span>Courbes de niveau IGN</span><input class="opacity" data-opacity="overlay-contours" type="range" min="0" max="1" value=".72" step=".05"></div>
+      <div class="layer-row"><input type="checkbox" data-layer="overlay-cadastre"><span>Parcellaire IGN</span><input class="opacity" data-opacity="overlay-cadastre" type="range" min="0" max="1" value=".72" step=".05"></div>
+      <div class="layer-row"><input type="checkbox" data-layer="osm-buildings-3d" checked><span>Bâtiments OSM 3D</span><input class="opacity" data-opacity="osm-buildings-3d" type="range" min="0" max="1" value=".78" step=".05"></div>
+      <div class="layer-row"><input id="terrainToggle" type="checkbox" checked><span>Relief 3D</span><span></span></div>
+      <div class="row"><span class="small">Exagération du relief</span><b id="terrainExVal">1.5×</b></div>
+      <input id="terrainEx" type="range" min="0" max="3" value="1.5" step=".1">
+    </section>
+
+    <section class="panel">
+      <h2>Profil et calculs</h2>
+      <div class="row"><span class="small">Pas d'analyse</span><select id="sampleStep" style="width:100px"><option value="10">10 m</option><option value="20" selected>20 m</option><option value="50">50 m</option></select></div>
+      <div class="stats-grid">
+        <div class="stat"><b id="s-distance">—</b><span>Distance</span></div>
+        <div class="stat"><b id="s-altitude">—</b><span>Altitude curseur</span></div>
+        <div class="stat"><b id="s-up">—</b><span>Dénivelé +</span></div>
+        <div class="stat"><b id="s-down">—</b><span>Dénivelé −</span></div>
+        <div class="stat"><b id="s-slope">—</b><span>Pente locale</span></div>
+        <div class="stat"><b id="s-angle">—</b><span>Angle local</span></div>
+        <div class="stat"><b id="s-min">—</b><span>Altitude mini</span></div>
+        <div class="stat"><b id="s-max">—</b><span>Altitude maxi</span></div>
+      </div>
+      <div class="row wrap">
+        <button class="btn primary" id="analyseBtn">Recalculer le profil</button>
+        <button class="btn" id="drawBtn">Tracer un segment</button>
+        <button class="btn danger" id="clearSegment">Effacer segment</button>
+      </div>
+      <div class="status hint" id="status">Chargement des traces GPX… Les altitudes sont récupérées automatiquement en ligne à partir des coordonnées du parcours.</div>
+    </section>
+
+
+    <section class="panel">
+      <h2>Traces GPX utilisées</h2>
+      <div class="small hint">
+        <b>Sources intégrées :</b><br>
+        • parcours 8km.gpx<br>
+        • parcours 12 km.gpx<br>
+        • parcours 21 km.gpx<br><br>
+        Les fichiers décrivent les itinéraires mais ne comportent pas d'altitudes embarquées. Les profils sont enrichis automatiquement au chargement.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Export</h2>
+      <div class="row wrap">
+        <button class="btn" id="exportMap">Image carte PNG</button>
+        <button class="btn" id="exportProfile">Image profil PNG</button>
+        <button class="btn" id="exportCSV">Données CSV</button>
+        <button class="btn" id="exportGPX">GPX enrichi altitude</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Comparatif des parcours</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Parcours</th><th>km</th><th>D+</th><th>D−</th><th>mini</th><th>maxi</th><th>pente +</th><th>pente −</th></tr></thead>
+        <tbody id="compareBody"></tbody>
+      </table>
+      </div>
+      <p class="small hint">Les GPX fournis ne contiennent pas de balises d'altitude. L'application complète automatiquement les profils depuis un service altimétrique en ligne, avec repli sur le relief 3D si nécessaire. Pour une publication officielle, validez les résultats sur le terrain.</p>
+    </section>
+  </aside>
+
+  <main id="map"></main>
+
+  <div class="progress-wrap">
+    <button class="btn primary" id="playBtn">▶</button>
+    <span class="label" id="sliderLabel">Position sur le parcours</span>
+    <input id="progress" type="range" min="0" max="1000" value="0">
+    <output id="progressOut">0.00 km</output>
+  </div>
+
+  <div class="legend dynamic-panel">
+    <div class="legend-head"><b>Parcours</b><button class="legend-help" id="openHelpLegend" type="button" aria-label="Ouvrir l’aide" title="Mode d’emploi">ⓘ</button></div>
+    <div><i class="swatch" style="background:#4dabf7"></i> 8 km</div>
+    <div><i class="swatch" style="background:#ff922b"></i> 12 km</div>
+    <div><i class="swatch" style="background:#f06595"></i> 21 km</div>
+    <div><i class="swatch" style="background:#ffe066"></i> progression</div>
+  </div>
+
+  <div class="map-tools" id="mapTools" aria-label="Outils de carte">
+    <button class="map-tool primary" id="mapLocateBtn" type="button" title="Activer la localisation GPS">📍 Localiser</button>
+    <button class="map-tool" id="mapFollowBtn" type="button" title="Activer le suivi automatique">🎯 Suivi <small>désactivé</small></button>
+    <button class="map-tool" id="mapCenterBtn" type="button" title="Recentrer sur ma dernière position">⌖ Centrer <small>sur moi</small></button>
+  </div>
+
+  <section id="profilePanel">
+    <div class="profile-main">
+      <div class="profile-head">
+        <div>
+          <div class="profile-title">Profil altimétrique détaillé</div>
+          <div class="profile-subtitle">Altitude, zones de pente et position synchronisée avec la carte 3D</div>
+        </div>
+        <div class="profile-badges">
+          <span class="profile-badge" title="Affiche une grille verticale tous les kilomètres sur le profil">repères kilométriques</span>
+          <span class="profile-badge" title="Repère automatiquement les altitudes minimale et maximale du parcours">mini / maxi</span>
+          <span class="profile-badge" title="Colore chaque portion du profil selon la pente locale">pentes colorées</span>
+        </div>
+      </div>
+      <canvas id="profileCanvas"></canvas>
+      <canvas id="slopeCanvas"></canvas>
+      <div class="profile-legend">
+        <span><i style="background:#2a9d73"></i> descente / plat</span>
+        <span><i style="background:#f5c451"></i> montée modérée</span>
+        <span><i style="background:#ed8b35"></i> montée soutenue</span>
+        <span><i style="background:#d9574f"></i> montée forte</span>
+        <span class="profile-drag-note">Cliquez ou faites glisser le doigt / la souris dans le profil pour déplacer le traceur.</span>
+      </div>
+    </div>
+    <div class="profile-side">
+      <div class="stats-grid">
+        <div class="stat"><b id="p-current">—</b><span>Point courant</span></div>
+        <div class="stat"><b id="p-progress">—</b><span>Avancement</span></div>
+        <div class="stat"><b id="p-maxup">—</b><span>Pente max +</span></div>
+        <div class="stat"><b id="p-maxdown">—</b><span>Pente max −</span></div>
+        <div class="stat"><b id="p-maxangle">—</b><span>Angle max</span></div>
+        <div class="stat"><b id="p-source">Chargement…</b><span>Source altitude</span></div>
+      </div>
+      <div class="profile-actions">
+        <button class="btn" id="followBtn">Suivi caméra : OUI</button>
+        <button class="btn" id="pitchBtn">Vue 3D / 2D</button>
+      </div>
+      <div class="status hint">Le profil principal affiche l'altitude. La bande inférieure met en évidence la pente locale. Le curseur blanc suit la même position dans les deux graphiques et dans la carte.</div>
+    </div>
+  </section>
+</div>
+<div class="help-modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="help-dialog">
+      <div class="help-head">
+        <h2 id="helpTitle">Mode d’emploi — analyse 3D du Trail de Sadirac</h2>
+        <button class="help-close" id="closeHelp" type="button" aria-label="Fermer">×</button>
+      </div>
+      <div class="help-body">
+        <div class="help-grid">
+          <section class="help-card"><h3>1. Choisir un parcours</h3><p>Dans le panneau de gauche, cochez ou masquez les traces 8 km, 12 km et 21 km. Le menu <b>Profil analysé</b> définit le parcours utilisé par le profil et le traceur.</p></section>
+          <section class="help-card"><h3>2. Faire avancer le traceur</h3><p>Utilisez le bouton <b>▶</b> pour lancer l’animation. Vous pouvez aussi déplacer le curseur horizontal situé au-dessus de la carte.</p></section>
+          <section class="help-card"><h3>3. Utiliser le GPS sur site</h3><p>Utilisez le bouton <b>📍 Localiser</b> placé dans les outils de carte. La carte affiche votre position, l’écart à la trace, le kilomètre le plus proche et une liaison vers le point du parcours le plus proche. Sur mobile, publiez de préférence le viewer en <b>HTTPS</b> : un fichier HTML ouvert localement peut bloquer la géolocalisation.</p></section>
+          <section class="help-card"><h3>4. Déplacer manuellement depuis le profil</h3><p>Cliquez dans le profil altimétrique ou dans la bande de pente. Maintenez le clic et faites glisser la souris. Sur téléphone, posez le doigt puis glissez. Le coureur et la caméra suivent immédiatement.</p></section>
+          <section class="help-card"><h3>5. Comprendre les repères du profil</h3><ul><li><b>Repères kilométriques</b> : grille verticale de distance.</li><li><b>Mini / maxi</b> : points d’altitude minimale et maximale.</li><li><b>Pentes colorées</b> : coloration selon l’intensité de la pente locale.</li></ul></section>
+          <section class="help-card"><h3>6. Fonds de carte et relief</h3><p>Choisissez OSM, OpenTopoMap, IGN Plan ou orthophoto. Activez le relief 3D, les courbes de niveau, le cadastre et les bâtiments OSM 3D selon le besoin.</p></section>
+          <section class="help-card"><h3>7. Tracer un segment libre</h3><p>Cliquez sur <b>Tracer un segment</b>, puis choisissez deux points sur la carte. L’application calcule le profil altimétrique du segment. Utilisez <b>Effacer segment</b> pour revenir au parcours.</p></section>
+          <section class="help-card"><h3>8. Lire les statistiques</h3><p>Les panneaux indiquent la distance, l’altitude courante, les dénivelés cumulés, les pentes maximales, l’angle maximal et la source altimétrique utilisée.</p></section>
+          <section class="help-card"><h3>9. Exporter les résultats</h3><p>Vous pouvez enregistrer la carte, exporter le profil en image PNG, télécharger les données CSV ou générer un GPX enrichi avec les altitudes calculées.</p></section>
+        </div>
+        <div class="help-tip"><b>Astuce :</b> pour examiner précisément une montée, désactivez temporairement le suivi caméra, puis faites glisser le curseur directement dans le profil.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const ROUTES = {"8 km":{"name":"8 km","coordinates":[[-0.4118,44.78134],[-0.41206,44.78144],[-0.41218,44.78147],[-0.41235,44.78151],[-0.41258,44.78158],[-0.41273,44.7816],[-0.41331,44.78165],[-0.41332,44.78165],[-0.41376,44.78168],[-0.41443,44.78182],[-0.41485,44.78196],[-0.41503,44.78205],[-0.41524,44.78215],[-0.41526,44.78216],[-0.41527,44.78215],[-0.41526,44.78216],[-0.41529,44.78217],[-0.41578,44.78245],[-0.41612,44.78276],[-0.41631,44.78299],[-0.41659,44.78345],[-0.41663,44.78353],[-0.41665,44.78356],[-0.41669,44.78364],[-0.41677,44.78403],[-0.41692,44.78495],[-0.41692,44.78498],[-0.41686,44.785],[-0.41683,44.78505],[-0.41667,44.7853],[-0.41649,44.78556],[-0.41638,44.78568],[-0.41605,44.78598],[-0.41591,44.78613],[-0.41582,44.78628],[-0.41577,44.78639],[-0.41573,44.78654],[-0.41563,44.78719],[-0.41553,44.78757],[-0.41546,44.7879],[-0.4154,44.78811],[-0.41539,44.78812],[-0.41516,44.78802],[-0.41497,44.78793],[-0.41487,44.78789],[-0.41469,44.78784],[-0.41405,44.78771],[-0.41366,44.78761],[-0.41319,44.78751],[-0.41295,44.78748],[-0.41249,44.78746],[-0.41235,44.78751],[-0.41225,44.78762],[-0.4123,44.78785],[-0.41228,44.78811],[-0.41199,44.78861],[-0.41177,44.7886],[-0.41129,44.78881],[-0.41076,44.78902],[-0.40978,44.78916],[-0.40957,44.78956],[-0.40957,44.78979],[-0.40947,44.79079],[-0.40955,44.79107],[-0.40971,44.79136],[-0.40988,44.79142],[-0.40946,44.79153],[-0.40914,44.79167],[-0.40868,44.79196],[-0.40818,44.7922],[-0.4074,44.79249],[-0.40618,44.79146],[-0.40466,44.79014],[-0.40495,44.78967],[-0.40488,44.78959],[-0.40369,44.78974],[-0.40334,44.78981],[-0.40255,44.78993],[-0.40182,44.79006],[-0.40135,44.7907],[-0.40253,44.79091],[-0.40272,44.791],[-0.4029,44.79116],[-0.4035,44.7914],[-0.40385,44.79167],[-0.40421,44.79227],[-0.40421,44.79243],[-0.4039,44.79248],[-0.4038,44.79303],[-0.40388,44.79338],[-0.40401,44.79355],[-0.40399,44.79366],[-0.40345,44.79374],[-0.40343,44.79387],[-0.4035,44.79415],[-0.40182,44.79435],[-0.40053,44.79455],[-0.39987,44.79493],[-0.3996,44.79498],[-0.3994,44.7949],[-0.39919,44.79472],[-0.39946,44.79467],[-0.39991,44.79442],[-0.40063,44.79403],[-0.4012,44.79412],[-0.40173,44.79386],[-0.40202,44.79326],[-0.40202,44.79293],[-0.40156,44.79334],[-0.40119,44.79357],[-0.40041,44.79384],[-0.39917,44.79456],[-0.39862,44.79435],[-0.39781,44.79458],[-0.39657,44.79413],[-0.39504,44.79394],[-0.39324,44.7934],[-0.39381,44.79218],[-0.39368,44.79214],[-0.39388,44.79129],[-0.39405,44.79076],[-0.39427,44.79076],[-0.39505,44.79089],[-0.39658,44.79077],[-0.39823,44.79053],[-0.39761,44.79176],[-0.39922,44.79222],[-0.39999,44.79071],[-0.40021,44.79068],[-0.40045,44.79012],[-0.4007,44.79017],[-0.40086,44.78948],[-0.40103,44.78901],[-0.40114,44.78877],[-0.40124,44.78825],[-0.40259,44.7884],[-0.40305,44.78812],[-0.40363,44.788],[-0.40325,44.78728],[-0.4031,44.78643],[-0.40286,44.7862],[-0.40237,44.78582],[-0.40188,44.78535],[-0.40309,44.78463],[-0.4033,44.78479],[-0.40381,44.78457],[-0.40404,44.78456],[-0.40432,44.78436],[-0.40371,44.78386],[-0.40239,44.78301],[-0.40268,44.78278],[-0.40229,44.78232],[-0.40225,44.78211],[-0.40212,44.78201],[-0.40325,44.78133],[-0.40357,44.78127],[-0.4042,44.78118],[-0.40452,44.78105],[-0.40458,44.78086],[-0.40451,44.78069],[-0.40438,44.78054],[-0.40432,44.7804],[-0.40429,44.78026],[-0.4045,44.78],[-0.40519,44.77955],[-0.40563,44.77967],[-0.40616,44.77968],[-0.40635,44.77972],[-0.40665,44.77968],[-0.40697,44.7797],[-0.40706,44.77976],[-0.40727,44.77976],[-0.40756,44.77986],[-0.40776,44.77985],[-0.40792,44.77981],[-0.40824,44.77962],[-0.40875,44.77968],[-0.40926,44.77974],[-0.40947,44.77975],[-0.40976,44.77968],[-0.41033,44.77974],[-0.41048,44.77983],[-0.41073,44.77973],[-0.41099,44.7798],[-0.41122,44.77959],[-0.41123,44.77929],[-0.41134,44.77919]],"distance_km":8.45923,"source":"parcours 8km.gpx","gpx_has_elevation":false},"12 km":{"name":"12 km","coordinates":[[-0.41179,44.78132],[-0.41179,44.78132],[-0.41216,44.78147],[-0.41264,44.7816],[-0.41321,44.78167],[-0.41409,44.78175],[-0.41532,44.78218],[-0.41615,44.78274],[-0.4167,44.78354],[-0.41692,44.78496],[-0.41634,44.78575],[-0.4158,44.78627],[-0.41547,44.7879],[-0.41536,44.78812],[-0.41489,44.7879],[-0.41403,44.7877],[-0.41334,44.78755],[-0.41247,44.78744],[-0.41234,44.78748],[-0.41224,44.78761],[-0.4123,44.78782],[-0.41228,44.78812],[-0.41197,44.78862],[-0.41175,44.78862],[-0.41077,44.78903],[-0.40979,44.78919],[-0.40958,44.78957],[-0.40946,44.79077],[-0.40956,44.79106],[-0.40972,44.79136],[-0.4099,44.79145],[-0.40944,44.79155],[-0.40848,44.79208],[-0.40737,44.7925],[-0.40468,44.79015],[-0.40495,44.78966],[-0.40486,44.78958],[-0.40366,44.78974],[-0.40182,44.79007],[-0.40136,44.79071],[-0.40251,44.7909],[-0.40271,44.791],[-0.40289,44.79117],[-0.4035,44.7914],[-0.40385,44.79165],[-0.40422,44.79226],[-0.40421,44.79243],[-0.40391,44.79248],[-0.40381,44.79302],[-0.40389,44.79339],[-0.40402,44.79355],[-0.404,44.79366],[-0.40345,44.79374],[-0.40342,44.79388],[-0.4035,44.79415],[-0.40179,44.79436],[-0.40053,44.79455],[-0.39988,44.79494],[-0.3996,44.79499],[-0.39939,44.7949],[-0.3992,44.79472],[-0.39947,44.79467],[-0.40062,44.79403],[-0.4012,44.79412],[-0.40173,44.79387],[-0.40202,44.79326],[-0.40202,44.79293],[-0.40156,44.79333],[-0.40118,44.79358],[-0.40041,44.79383],[-0.39917,44.79456],[-0.39862,44.79435],[-0.39781,44.79456],[-0.39656,44.79413],[-0.39503,44.79394],[-0.39324,44.7934],[-0.3938,44.79219],[-0.39367,44.79214],[-0.39405,44.79077],[-0.39426,44.79074],[-0.39505,44.7909],[-0.39658,44.79077],[-0.39822,44.79054],[-0.39761,44.79177],[-0.39922,44.79222],[-0.39998,44.79071],[-0.40021,44.79069],[-0.40045,44.79012],[-0.4007,44.79017],[-0.40087,44.78947],[-0.40115,44.78878],[-0.40124,44.78824],[-0.40258,44.78841],[-0.40305,44.78811],[-0.40363,44.788],[-0.40325,44.78729],[-0.4031,44.78641],[-0.40237,44.78582],[-0.40189,44.78535],[-0.40307,44.78464],[-0.4033,44.78479],[-0.4038,44.78456],[-0.40405,44.78456],[-0.40433,44.78437],[-0.40375,44.7839],[-0.40308,44.78347],[-0.40239,44.78301],[-0.40269,44.78278],[-0.40231,44.78235],[-0.40227,44.78212],[-0.40211,44.78202],[-0.40115,44.78112],[-0.40117,44.78104],[-0.4008,44.78073],[-0.40049,44.78042],[-0.39983,44.78014],[-0.39861,44.77942],[-0.39849,44.77858],[-0.39784,44.77791],[-0.39744,44.77771],[-0.39716,44.77737],[-0.39699,44.77722],[-0.39676,44.77712],[-0.39588,44.77701],[-0.39506,44.77668],[-0.39404,44.77628],[-0.39351,44.77625],[-0.39299,44.77637],[-0.39262,44.77666],[-0.39214,44.77645],[-0.39279,44.77569],[-0.39294,44.77554],[-0.39325,44.77542],[-0.39311,44.77507],[-0.39261,44.77484],[-0.39179,44.77467],[-0.39106,44.77428],[-0.39105,44.77419],[-0.39118,44.77411],[-0.39137,44.77389],[-0.39168,44.77341],[-0.39173,44.77321],[-0.39181,44.77307],[-0.39199,44.77209],[-0.39219,44.77135],[-0.39229,44.77065],[-0.39251,44.77014],[-0.39321,44.7702],[-0.39435,44.7704],[-0.39565,44.77045],[-0.39584,44.77132],[-0.39598,44.77153],[-0.3965,44.772],[-0.3969,44.77246],[-0.39709,44.77296],[-0.39706,44.77352],[-0.39713,44.77374],[-0.39752,44.77386],[-0.39753,44.77417],[-0.39738,44.77443],[-0.39712,44.7745],[-0.39756,44.7745],[-0.39792,44.77421],[-0.39821,44.77382],[-0.39862,44.77351],[-0.399,44.77333],[-0.39962,44.77287],[-0.40015,44.77263],[-0.40048,44.77209],[-0.4008,44.77085],[-0.40245,44.77174],[-0.40266,44.77205],[-0.4031,44.77269],[-0.40259,44.77312],[-0.40236,44.77344],[-0.4015,44.77374],[-0.40121,44.77369],[-0.40039,44.77438],[-0.39965,44.77518],[-0.40097,44.776],[-0.40162,44.77615],[-0.40218,44.7764],[-0.40217,44.77661],[-0.40256,44.77695],[-0.40264,44.77724],[-0.40281,44.77757],[-0.40338,44.77788],[-0.40337,44.77806],[-0.4032,44.77822],[-0.40363,44.7785],[-0.40368,44.77869],[-0.40384,44.77883],[-0.40422,44.77896],[-0.4046,44.7789],[-0.4052,44.77955],[-0.40571,44.77967],[-0.40617,44.77969],[-0.40642,44.77973],[-0.40693,44.77968],[-0.40707,44.77978],[-0.4073,44.77978],[-0.40752,44.77988],[-0.40784,44.77984],[-0.40827,44.77964],[-0.40946,44.77978],[-0.40971,44.77967],[-0.40998,44.77973],[-0.41037,44.77974],[-0.41048,44.77985],[-0.4107,44.77972],[-0.41104,44.77983],[-0.41125,44.7796],[-0.41125,44.77931],[-0.41133,44.77921]],"distance_km":12.75309,"source":"parcours 12 km.gpx","gpx_has_elevation":false},"21 km":{"name":"21 km","coordinates":[[-0.4118,44.78133],[-0.41208,44.78145],[-0.41257,44.78158],[-0.41331,44.78163],[-0.41377,44.78168],[-0.41444,44.7818],[-0.41525,44.78216],[-0.41579,44.78244],[-0.41611,44.78275],[-0.41666,44.78355],[-0.41692,44.78498],[-0.41687,44.78501],[-0.41638,44.78567],[-0.41603,44.786],[-0.41583,44.78626],[-0.41571,44.78658],[-0.41564,44.78718],[-0.41547,44.78792],[-0.4154,44.78813],[-0.41487,44.7879],[-0.4141,44.78773],[-0.41324,44.78751],[-0.41294,44.78747],[-0.4125,44.78747],[-0.41236,44.7875],[-0.41224,44.78762],[-0.41231,44.78782],[-0.41228,44.78811],[-0.41198,44.78862],[-0.41178,44.78861],[-0.41076,44.78904],[-0.41054,44.78907],[-0.4098,44.78919],[-0.40959,44.78954],[-0.40947,44.79064],[-0.40947,44.79081],[-0.40952,44.79098],[-0.40971,44.79134],[-0.4099,44.79144],[-0.40946,44.79155],[-0.40847,44.79209],[-0.40739,44.7925],[-0.40613,44.79141],[-0.40468,44.79014],[-0.40496,44.78966],[-0.40487,44.78959],[-0.40369,44.78974],[-0.40243,44.78995],[-0.40182,44.79008],[-0.40136,44.7907],[-0.40222,44.79083],[-0.40228,44.79087],[-0.40253,44.7909],[-0.40275,44.79102],[-0.40291,44.79117],[-0.40345,44.79136],[-0.40367,44.79147],[-0.40387,44.79162],[-0.4043,44.79234],[-0.40422,44.79243],[-0.4039,44.79249],[-0.40381,44.79303],[-0.40388,44.79337],[-0.40402,44.79354],[-0.404,44.79366],[-0.40346,44.79373],[-0.40342,44.79387],[-0.4035,44.79416],[-0.40186,44.79435],[-0.40054,44.79455],[-0.39989,44.79494],[-0.3996,44.79499],[-0.3994,44.7949],[-0.39919,44.79472],[-0.39945,44.79467],[-0.40063,44.79404],[-0.4012,44.79412],[-0.40173,44.79387],[-0.40203,44.79325],[-0.40202,44.79292],[-0.40162,44.79329],[-0.40118,44.79358],[-0.4004,44.79384],[-0.39967,44.7943],[-0.39917,44.79456],[-0.39867,44.79435],[-0.39781,44.79456],[-0.39713,44.79429],[-0.39657,44.79413],[-0.39504,44.79395],[-0.39324,44.79339],[-0.39381,44.79219],[-0.39367,44.79214],[-0.39405,44.79075],[-0.39425,44.79073],[-0.39505,44.79091],[-0.3966,44.79077],[-0.39824,44.79054],[-0.39759,44.79178],[-0.39922,44.79223],[-0.39999,44.79071],[-0.40023,44.79069],[-0.40045,44.79012],[-0.40071,44.79018],[-0.40088,44.78945],[-0.40116,44.78876],[-0.40125,44.78824],[-0.40259,44.78841],[-0.40305,44.78811],[-0.40363,44.788],[-0.40326,44.78728],[-0.4031,44.78642],[-0.40235,44.78581],[-0.40232,44.78571],[-0.40189,44.78536],[-0.4031,44.78465],[-0.4033,44.7848],[-0.4038,44.78456],[-0.40405,44.78456],[-0.40433,44.78437],[-0.40371,44.78387],[-0.40286,44.78334],[-0.40238,44.78302],[-0.40268,44.7828],[-0.40231,44.78231],[-0.40224,44.78211],[-0.40183,44.78179],[-0.40116,44.78113],[-0.40118,44.78103],[-0.40079,44.78072],[-0.40048,44.78042],[-0.39986,44.78015],[-0.39861,44.77942],[-0.3985,44.77858],[-0.39784,44.77791],[-0.39744,44.77771],[-0.39716,44.77737],[-0.39699,44.77722],[-0.39677,44.77712],[-0.39589,44.77701],[-0.39403,44.77628],[-0.39351,44.77625],[-0.39299,44.77636],[-0.39262,44.77666],[-0.39214,44.77645],[-0.39294,44.77553],[-0.39325,44.77542],[-0.39311,44.77507],[-0.39262,44.77484],[-0.3918,44.77467],[-0.39106,44.77428],[-0.39101,44.7742],[-0.39065,44.77431],[-0.39003,44.77434],[-0.38879,44.77454],[-0.38804,44.77469],[-0.38745,44.77482],[-0.3856,44.77365],[-0.38511,44.77336],[-0.38493,44.77335],[-0.3846,44.77337],[-0.38429,44.77333],[-0.38391,44.77481],[-0.38389,44.77506],[-0.38391,44.776],[-0.38382,44.77619],[-0.38347,44.77647],[-0.38329,44.77666],[-0.38316,44.77691],[-0.38279,44.77832],[-0.38212,44.77816],[-0.38156,44.7781],[-0.38089,44.77781],[-0.38054,44.77764],[-0.37915,44.77689],[-0.37848,44.77662],[-0.37804,44.77639],[-0.37759,44.77613],[-0.37551,44.77532],[-0.37407,44.7749],[-0.37342,44.77461],[-0.37324,44.77442],[-0.3728,44.77398],[-0.37259,44.77369],[-0.37221,44.77315],[-0.3705,44.77174],[-0.36822,44.77101],[-0.36794,44.7708],[-0.36746,44.77017],[-0.36798,44.77004],[-0.36946,44.76964],[-0.37117,44.76942],[-0.37149,44.76947],[-0.37194,44.76959],[-0.37307,44.76935],[-0.37389,44.76905],[-0.3756,44.76822],[-0.37608,44.76804],[-0.37666,44.76783],[-0.37682,44.76776],[-0.37676,44.76759],[-0.3767,44.76735],[-0.37686,44.76704],[-0.37712,44.76674],[-0.37757,44.76601],[-0.37901,44.76638],[-0.37951,44.76569],[-0.3807,44.7656],[-0.38241,44.76549],[-0.38429,44.76537],[-0.38435,44.76588],[-0.38509,44.76599],[-0.38504,44.76521],[-0.38572,44.76516],[-0.3858,44.76603],[-0.3858,44.76625],[-0.38572,44.76663],[-0.3856,44.76721],[-0.38557,44.7677],[-0.38569,44.76818],[-0.38573,44.76858],[-0.385,44.77015],[-0.38482,44.77094],[-0.38461,44.77205],[-0.38472,44.77197],[-0.38485,44.77195],[-0.38511,44.77203],[-0.38529,44.77203],[-0.38549,44.7722],[-0.38577,44.7723],[-0.38607,44.77235],[-0.38644,44.77235],[-0.38683,44.77231],[-0.38699,44.77226],[-0.38715,44.77216],[-0.38729,44.77213],[-0.38748,44.77217],[-0.38759,44.77226],[-0.38763,44.77241],[-0.38777,44.7726],[-0.38784,44.77263],[-0.38793,44.77261],[-0.38803,44.77266],[-0.38815,44.77266],[-0.38831,44.7727],[-0.38844,44.7729],[-0.38865,44.77305],[-0.38895,44.77311],[-0.38904,44.7732],[-0.38916,44.77321],[-0.38931,44.77319],[-0.38945,44.77315],[-0.38961,44.77315],[-0.38994,44.77331],[-0.39016,44.77333],[-0.39031,44.77339],[-0.39058,44.77337],[-0.39072,44.77339],[-0.39086,44.77329],[-0.39102,44.77338],[-0.39122,44.77337],[-0.39136,44.77344],[-0.39146,44.77344],[-0.39157,44.77349],[-0.39185,44.77263],[-0.3921,44.77177],[-0.39222,44.77097],[-0.3923,44.77062],[-0.39254,44.77008],[-0.39326,44.77021],[-0.39445,44.77039],[-0.39566,44.77044],[-0.39582,44.77129],[-0.39689,44.77243],[-0.39712,44.77293],[-0.39707,44.77351],[-0.39715,44.77374],[-0.39755,44.77391],[-0.3974,44.77442],[-0.39712,44.77452],[-0.39759,44.77453],[-0.39826,44.77385],[-0.39861,44.77348],[-0.39903,44.77337],[-0.39967,44.7729],[-0.40018,44.77261],[-0.40046,44.77209],[-0.40085,44.77086],[-0.40094,44.77076],[-0.40075,44.77063],[-0.40077,44.7705],[-0.40088,44.77027],[-0.40163,44.77005],[-0.40205,44.76935],[-0.40234,44.76889],[-0.4028,44.76849],[-0.40329,44.76811],[-0.40353,44.76783],[-0.40367,44.76754],[-0.40376,44.76729],[-0.40462,44.76753],[-0.4045,44.76782],[-0.4047,44.7681],[-0.40589,44.76849],[-0.4062,44.76798],[-0.40655,44.76682],[-0.40762,44.76714],[-0.4075,44.76763],[-0.40784,44.76767],[-0.40749,44.76857],[-0.40799,44.76877],[-0.40843,44.76774],[-0.4086,44.76773],[-0.40887,44.7678],[-0.40924,44.76788],[-0.40967,44.76804],[-0.40975,44.76815],[-0.40977,44.76852],[-0.41011,44.76894],[-0.40989,44.76954],[-0.40959,44.7698],[-0.40897,44.77069],[-0.40852,44.77152],[-0.40865,44.77084],[-0.40853,44.77077],[-0.40791,44.77089],[-0.40779,44.77087],[-0.40787,44.77047],[-0.40781,44.77038],[-0.40782,44.77017],[-0.40763,44.76994],[-0.40735,44.76982],[-0.40724,44.76967],[-0.40753,44.76928],[-0.40725,44.76914],[-0.40674,44.76971],[-0.40633,44.76959],[-0.40593,44.76939],[-0.40528,44.76905],[-0.40512,44.76928],[-0.40469,44.76973],[-0.4045,44.77002],[-0.40408,44.77027],[-0.40328,44.77045],[-0.40345,44.77081],[-0.40324,44.77112],[-0.40267,44.7715],[-0.40243,44.7717],[-0.4024,44.77182],[-0.4031,44.77269],[-0.40259,44.77311],[-0.40237,44.77344],[-0.4015,44.77373],[-0.40122,44.7737],[-0.40043,44.77435],[-0.39964,44.77518],[-0.40097,44.77599],[-0.40163,44.77615],[-0.40219,44.77641],[-0.40217,44.77661],[-0.40256,44.77694],[-0.40281,44.77758],[-0.40338,44.77787],[-0.40338,44.77806],[-0.40321,44.77823],[-0.40365,44.7785],[-0.40368,44.77869],[-0.40385,44.77885],[-0.40423,44.77895],[-0.40461,44.7789],[-0.40521,44.77956],[-0.40563,44.77966],[-0.40618,44.77969],[-0.40636,44.77973],[-0.4066,44.77971],[-0.40695,44.77969],[-0.40708,44.77978],[-0.40728,44.77978],[-0.40753,44.77988],[-0.40778,44.77985],[-0.40794,44.77982],[-0.40824,44.77964],[-0.40944,44.77978],[-0.40972,44.77968],[-0.40998,44.77975],[-0.41017,44.77977],[-0.41032,44.77974],[-0.41052,44.77986],[-0.41071,44.77979],[-0.41102,44.77983],[-0.41124,44.7796],[-0.41123,44.7793],[-0.41135,44.77922]],"distance_km":21.47361,"source":"parcours 21 km.gpx","gpx_has_elevation":false}};
+const COLORS = {"8 km":"#4dabf7","12 km":"#ff922b","21 km":"#f06595"};
+const BASE_LAYERS = ["base-osm","base-topo","base-ign-plan","base-ign-ortho","base-esri"];
+const routeAnalysis = {};
+let activeName = "8 km";
+let activeProfile = null;
+let activeProfileKind = "route";
+let followCamera = true;
+let is3D = true;
+let playing = false;
+let playTimer = null;
+let drawMode = false;
+let drawPoints = [];
+let runnerMarker = null;
+let gpsWatchId = null;
+let latestGps = null;
+let gpsFollow = false;
+const GPS_ON_ROUTE_M = 20;
+const GPS_WARN_ROUTE_M = 60;
+const map = new maplibregl.Map({
+  container:"map",
+  style:{version:8,sources:{},layers:[{id:"background",type:"background",paint:{"background-color":"#d9e3e3"}}]},
+  center:[-0.399,44.781],zoom:13.1,pitch:58,bearing:-16,
+  antialias:true,preserveDrawingBuffer:true,maxPitch:85
+});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),"bottom-right");
+map.addControl(new maplibregl.FullscreenControl(),"bottom-right");
+map.addControl(new maplibregl.ScaleControl({maxWidth:120,unit:"metric"}),"bottom-left");
+try{
+  const nativeGeo=new maplibregl.GeolocateControl({positionOptions:{enableHighAccuracy:true},trackUserLocation:true,showAccuracyCircle:true,showUserLocation:true});
+  map.addControl(nativeGeo,"top-right");
+  nativeGeo.on("geolocate",e=>updateGpsTerrain({coords:e.coords}));
+  nativeGeo.on("error",e=>setTerrainStatus(gpsErrorMessage(e.error||e),"ko"));
+}catch(_e){}
+
+function fcLine(coords, props={}){return {type:"FeatureCollection",features:[{type:"Feature",properties:props,geometry:{type:"LineString",coordinates:coords}}]}}
+function pointFC(coord, props={}){return {type:"FeatureCollection",features:coord?[{type:"Feature",properties:props,geometry:{type:"Point",coordinates:coord}}]:[]}}
+function hav(a,b){const R=6371000,p1=a[1]*Math.PI/180,p2=b[1]*Math.PI/180,dp=(b[1]-a[1])*Math.PI/180,dl=(b[0]-a[0])*Math.PI/180;const q=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
+function routeLength(coords){let d=0;for(let i=1;i<coords.length;i++)d+=hav(coords[i-1],coords[i]);return d}
+function cumulative(coords){const out=[0];for(let i=1;i<coords.length;i++)out.push(out[i-1]+hav(coords[i-1],coords[i]));return out}
+function pointAt(coords,cum,d){if(!coords.length)return null;if(d<=0)return coords[0];const total=cum[cum.length-1];if(d>=total)return coords[coords.length-1];let lo=0,hi=cum.length-1;while(lo+1<hi){const m=(lo+hi)>>1;if(cum[m]<=d)lo=m;else hi=m}const seg=Math.max(.01,cum[lo+1]-cum[lo]);const t=(d-cum[lo])/seg;return [coords[lo][0]+(coords[lo+1][0]-coords[lo][0])*t,coords[lo][1]+(coords[lo+1][1]-coords[lo][1])*t]}
+function resample(coords,step){const cum=cumulative(coords),total=cum[cum.length-1],out=[];for(let d=0;d<total;d+=step)out.push({...{coord:pointAt(coords,cum,d)},dist:d});out.push({coord:coords[coords.length-1],dist:total});return out}
+function bearing(a,b){const y=Math.sin((b[0]-a[0])*Math.PI/180)*Math.cos(b[1]*Math.PI/180);const x=Math.cos(a[1]*Math.PI/180)*Math.sin(b[1]*Math.PI/180)-Math.sin(a[1]*Math.PI/180)*Math.cos(b[1]*Math.PI/180)*Math.cos((b[0]-a[0])*Math.PI/180);return (Math.atan2(y,x)*180/Math.PI+360)%360}
+function boundsOf(coords){const b=new maplibregl.LngLatBounds();coords.forEach(c=>b.extend(c));return b}
+function setStatus(txt){document.getElementById("status").textContent=txt}
+function updateTerrainRoute(){const el=document.getElementById("terrain-route");if(el)el.textContent=activeName||"—"}
+
+map.on("load",()=>{
+  addRaster("osm","https://tile.openstreetmap.org/{z}/{x}/{y}.png",19,"© OpenStreetMap contributors");
+  addRaster("topo","https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png",17,"© OpenTopoMap contributors");
+  addRaster("ign-plan","https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",18,"© IGN");
+  addRaster("ign-ortho","https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",19,"© IGN");
+  addRaster("esri","https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",19,"© Esri");
+  addRaster("cadastre","https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",20,"© IGN",true);
+  addRaster("contours","https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ELEVATION.CONTOUR.LINE&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",18,"© IGN",true);
+  map.addSource("dem",{type:"raster-dem",tiles:["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],tileSize:256,maxzoom:15,encoding:"terrarium",attribution:"Elevation tiles © Mapzen / AWS"});
+  map.addLayer({id:"hillshade",type:"hillshade",source:"dem",layout:{visibility:"visible"},paint:{"hillshade-exaggeration":.42,"hillshade-shadow-color":"#1b2c31","hillshade-highlight-color":"#fbf3d5","hillshade-accent-color":"#5a7a75","hillshade-opacity":.45}});
+  map.setTerrain({source:"dem",exaggeration:1.5});
+  try{
+    map.addSource("osm-vector",{type:"vector",tiles:["https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"],minzoom:0,maxzoom:14,attribution:"© OpenStreetMap contributors"});
+    map.addLayer({id:"osm-buildings-3d",type:"fill-extrusion",source:"osm-vector","source-layer":"building",minzoom:14,layout:{visibility:"visible"},paint:{"fill-extrusion-color":"#ccd5d1","fill-extrusion-opacity":.78,"fill-extrusion-height":["coalesce",["to-number",["get","render_height"]],["to-number",["get","height"]],["*",["to-number",["get","levels"]],3],5],"fill-extrusion-base":["coalesce",["to-number",["get","render_min_height"]],0]}})
+  }catch(e){console.warn("Bâtiments OSM 3D indisponibles",e)}
+  for(const [name,r] of Object.entries(ROUTES))addTrack(name,r.coordinates);
+  map.addSource("route-progress",{type:"geojson",data:fcLine([])});
+  map.addLayer({id:"route-progress",type:"line",source:"route-progress",paint:{"line-color":"#ffe066","line-width":7,"line-opacity":.98}});
+  map.addSource("cursor",{type:"geojson",data:pointFC(null)});
+  map.addLayer({id:"cursor",type:"circle",source:"cursor",paint:{"circle-radius":8,"circle-color":"#ffffff","circle-stroke-color":"#15252b","circle-stroke-width":3}});
+  map.addSource("gps-accuracy",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+  map.addLayer({id:"gps-accuracy",type:"fill",source:"gps-accuracy",paint:{"fill-color":"#1f9d73","fill-opacity":.14}});
+  map.addSource("gps-nearest",{type:"geojson",data:fcLine([])});
+  map.addLayer({id:"gps-nearest",type:"line",source:"gps-nearest",paint:{"line-color":"#1f9d73","line-width":3,"line-dasharray":[1.2,1.2],"line-opacity":.95}});
+  map.addSource("gps-location",{type:"geojson",data:pointFC(null)});
+  map.addLayer({id:"gps-location",type:"circle",source:"gps-location",paint:{"circle-radius":8,"circle-color":"#1f9d73","circle-stroke-color":"#ffffff","circle-stroke-width":3}});
+
+  const runnerEl=document.createElement("div");runnerEl.className="runner-marker";runnerEl.title="Position sur le parcours";
+  runnerMarker=new maplibregl.Marker({element:runnerEl,anchor:"center"}).setLngLat(ROUTES[activeName].coordinates[0]).addTo(map);
+  map.addSource("draw-segment",{type:"geojson",data:fcLine([])});
+  map.addLayer({id:"draw-segment",type:"line",source:"draw-segment",paint:{"line-color":"#6ee7ff","line-width":5,"line-dasharray":[1.5,1]}});
+  map.addSource("draw-points",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+  map.addLayer({id:"draw-points",type:"circle",source:"draw-points",paint:{"circle-radius":7,"circle-color":"#6ee7ff","circle-stroke-color":"#08242c","circle-stroke-width":2}});
+  initUI();
+  if(!(window.isSecureContext||location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1")){
+    setTerrainStatus("GPS probablement bloqué : pour le téléphone, publiez le viewer en HTTPS puis ouvrez le lien.","ko");
+  }
+  fitAll();
+  setTimeout(()=>analyseAll(),1800);
+});
+function addRaster(id,url,maxzoom,attribution,overlay=false){
+  map.addSource(id,{type:"raster",tiles:[url],tileSize:256,maxzoom,attribution});
+  map.addLayer({id:"base-"+id,type:"raster",source:id,layout:{visibility:id==="osm"?"visible":"none"},paint:{"raster-opacity":1}});
+  if(overlay){
+    const lid="overlay-"+id;
+    map.setLayoutProperty("base-"+id,"visibility","none");
+    map.addLayer({id:lid,type:"raster",source:id,layout:{visibility:"none"},paint:{"raster-opacity":.72}});
+    map.removeLayer("base-"+id);
+  }
+}
+function addTrack(name,coords){
+  const id="track-"+name.replace(" ","-");
+  map.addSource(id,{type:"geojson",data:fcLine(coords,{name})});
+  map.addLayer({id,type:"line",source:id,layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":COLORS[name]||"#fff","line-width":name===activeName?5:3,"line-opacity":.9}});
+}
+function fitAll(){const b=new maplibregl.LngLatBounds();Object.values(ROUTES).forEach(r=>r.coordinates.forEach(c=>b.extend(c)));map.fitBounds(b,{padding:{top:76,bottom:45,left:30,right:30},duration:900,pitch:is3D?58:0})}
+function fitActive(){const coords=getCurrentCoords();if(coords.length)map.fitBounds(boundsOf(coords),{padding:{top:85,bottom:70,left:60,right:60},duration:700,pitch:is3D?58:0})}
+function getCurrentCoords(){if(activeProfileKind==="segment"&&drawPoints.length===2)return drawPoints;return ROUTES[activeName].coordinates}
+function initUI(){
+  const sel=document.getElementById("activeTrack");
+  Object.entries(ROUTES).forEach(([n,r])=>{const o=document.createElement("option");o.value=n;o.textContent=`${n} — ${r.distance_km.toFixed(2)} km mesurés`;sel.appendChild(o);document.getElementById("dist-"+n).textContent=r.distance_km.toFixed(2)+" km"});
+  sel.value=activeName;
+  updateTerrainRoute();
+  sel.addEventListener("change",async e=>{activeName=e.target.value;activeProfileKind="route";styleTracks();fitActive();updateTerrainRoute();if(latestGps)updateGpsTerrain(latestGps);await analyseRoute(activeName,true)});
+  document.querySelectorAll("[data-trackvis]").forEach(cb=>cb.addEventListener("change",()=>{const id="track-"+cb.dataset.trackvis.replace(" ","-");map.setLayoutProperty(id,"visibility",cb.checked?"visible":"none")}));
+  document.querySelectorAll('input[name="basemap"]').forEach(r=>r.addEventListener("change",()=>BASE_LAYERS.forEach(id=>{if(map.getLayer(id))map.setLayoutProperty(id,"visibility",id===r.value?"visible":"none")})));
+  document.querySelectorAll("[data-layer]").forEach(cb=>cb.addEventListener("change",()=>{if(map.getLayer(cb.dataset.layer))map.setLayoutProperty(cb.dataset.layer,"visibility",cb.checked?"visible":"none")}));
+  document.querySelectorAll("[data-opacity]").forEach(sl=>sl.addEventListener("input",()=>setOpacity(sl.dataset.opacity,+sl.value)));
+  document.getElementById("terrainToggle").addEventListener("change",e=>map.setTerrain(e.target.checked?{source:"dem",exaggeration:+document.getElementById("terrainEx").value}:null));
+  document.getElementById("terrainEx").addEventListener("input",e=>{document.getElementById("terrainExVal").textContent=(+e.target.value).toFixed(1)+"×";if(document.getElementById("terrainToggle").checked)map.setTerrain({source:"dem",exaggeration:+e.target.value})});
+  document.getElementById("progress").addEventListener("input",updateCursor);
+  document.getElementById("playBtn").onclick=togglePlay;
+  document.getElementById("zoomTrack").onclick=fitActive;
+  document.getElementById("followBtn").onclick=()=>{followCamera=!followCamera;document.getElementById("followBtn").textContent="Suivi caméra : "+(followCamera?"OUI":"NON")};
+  document.getElementById("pitchBtn").onclick=()=>{is3D=!is3D;map.easeTo({pitch:is3D?58:0,duration:650})};
+  document.getElementById("analyseBtn").onclick=()=>activeProfileKind==="segment"?analyseSegment():analyseRoute(activeName,true);
+  document.getElementById("sampleStep").onchange=()=>activeProfileKind==="segment"?analyseSegment():analyseRoute(activeName,true);
+  document.getElementById("drawBtn").onclick=toggleDraw;
+  document.getElementById("clearSegment").onclick=clearSegment;
+  document.getElementById("exportMap").onclick=exportMap;
+  document.getElementById("exportProfile").onclick=exportProfile;
+  document.getElementById("exportCSV").onclick=exportCSV;
+  document.getElementById("exportGPX").onclick=exportGPX;
+  document.getElementById("importGeoJSON").onchange=importGeoJSON;
+  bindProfilePointer(document.getElementById("profileCanvas"));
+  bindProfilePointer(document.getElementById("slopeCanvas"));
+  const helpModal=document.getElementById("helpModal");
+  const openHelp=()=>helpModal.classList.add("open");
+  const closeHelp=()=>helpModal.classList.remove("open");
+  document.getElementById("mapLocateBtn").onclick=toggleTerrainGps;
+  document.getElementById("mapCenterBtn").onclick=centerOnGps;
+  document.getElementById("mapFollowBtn").onclick=toggleGpsFollow;
+  document.getElementById("openHelpLegend").onclick=openHelp;
+  document.getElementById("closeHelp").onclick=closeHelp;
+  helpModal.addEventListener("click",e=>{if(e.target===helpModal)closeHelp()});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeHelp()});
+  document.getElementById("toggleSidebar").onclick=()=>document.getElementById("sidebar").classList.toggle("open");
+  map.on("click",mapClick);
+  window.addEventListener("resize",drawProfile);
+}
+function setOpacity(id,val){if(!map.getLayer(id))return;const type=map.getLayer(id).type;const prop=type==="raster"?"raster-opacity":type==="fill-extrusion"?"fill-extrusion-opacity":type==="hillshade"?"hillshade-opacity":"line-opacity";map.setPaintProperty(id,prop,val)}
+function styleTracks(){Object.keys(ROUTES).forEach(n=>{const id="track-"+n.replace(" ","-");if(map.getLayer(id))map.setPaintProperty(id,"line-width",n===activeName?5:3)})}
+async function analyseAll(){
+  setStatus("Calcul des profils altimétriques des trois parcours…");
+  for(const n of Object.keys(ROUTES))await analyseRoute(n,n===activeName,false);
+  activeProfile=routeAnalysis[activeName]||null;
+  if(activeProfile){updateStats();drawProfile();updateCursor();setStatus("Profils altimétriques chargés. Utilisez ▶ ou faites glisser le doigt / la souris directement dans le profil pour déplacer le coureur.")}
+  else setStatus("Le profil n’a pas pu être chargé. Vérifiez la connexion puis cliquez sur « Recalculer le profil ».");
+}
+async function analyseRoute(name,activate=true,refresh=true){
+  const step=+document.getElementById("sampleStep").value;
+  if(refresh||!routeAnalysis[name]){
+    setStatus(`Calcul du profil ${name}…`);
+    const sampled=resample(ROUTES[name].coordinates,step);
+    try{
+      routeAnalysis[name]=await addElevations(sampled);
+      routeAnalysis[name].name=name;routeAnalysis[name].stats=calcStats(routeAnalysis[name]);
+      renderCompare();
+    }catch(err){setStatus("Profil "+name+" non chargé : "+err.message);console.error(err);return;}
+  }
+  if(activate){activeProfileKind="route";activeProfile=routeAnalysis[name];document.getElementById("sliderLabel").textContent="Position sur le parcours "+name;document.getElementById("progress").value=0;updateStats();drawProfile();updateCursor()}
+}
+async function analyseSegment(){
+  if(drawPoints.length!==2)return setStatus("Tracez d'abord un segment en cliquant sur deux points de la carte.");
+  const sampled=resample(drawPoints,+document.getElementById("sampleStep").value);
+  setStatus("Calcul du profil du segment personnalisé…");
+  try{activeProfile=await addElevations(sampled)}catch(err){setStatus("Profil du segment non chargé : "+err.message);console.error(err);return}
+  activeProfile.name="Segment tracé";activeProfile.stats=calcStats(activeProfile);activeProfileKind="segment";
+  document.getElementById("sliderLabel").textContent="Position sur le segment tracé";document.getElementById("progress").value=0;updateStats();drawProfile();updateCursor();setStatus("Profil du segment personnalisé calculé.");
+}
+const TERRARIUM_TILE_CACHE=new Map();
+async function addElevations(sampled){
+  let vals=null,source="";
+  try{
+    setStatus("Chargement des altitudes depuis le modèle numérique de terrain…");
+    vals=await fetchTerrariumElevations(sampled,14);
+    if(vals.filter(Number.isFinite).length>=sampled.length*.96){source="MNT terrain"}else vals=null;
+  }catch(err){console.warn("MNT Terrarium indisponible",err);vals=null}
+
+  if(!vals){
+    try{
+      setStatus("MNT direct indisponible : tentative via le service altimétrique en ligne…");
+      vals=await fetchElevationsOnline(sampled);
+      if(vals.filter(Number.isFinite).length>=sampled.length*.90){source="Altitude en ligne"}else vals=null;
+    }catch(err){console.warn("Service altitude en ligne indisponible",err);vals=null}
+  }
+
+  if(!vals){
+    setStatus("Dernière tentative : lecture du relief 3D déjà chargé dans la carte…");
+    await waitIdle(1600);
+    vals=sampled.map(p=>map.queryTerrainElevation(p.coord,{exaggerated:false}));
+    if(vals.filter(Number.isFinite).length<sampled.length*.65){
+      await waitIdle(1800);
+      vals=sampled.map(p=>map.queryTerrainElevation(p.coord,{exaggerated:false}));
+    }
+    if(vals.filter(Number.isFinite).length>=sampled.length*.65)source="MNT 3D carte";
+  }
+
+  if(!vals || vals.filter(Number.isFinite).length===0){
+    document.getElementById("p-source").textContent="Indisponible";
+    throw new Error("Aucune altitude n’a pu être chargée. Vérifiez la connexion internet puis cliquez sur « Recalculer le profil ».");
+  }
+
+  const clean=interpolateMissing(vals);
+  const smooth=smoothElevations(clean,2);
+  document.getElementById("p-source").textContent=source||"MNT";
+  return sampled.map((p,i)=>({...p,elev:smooth[i]}));
+}
+function interpolateMissing(vals){
+  const clean=vals.map(v=>Number.isFinite(+v)?+v:null);
+  for(let i=0;i<clean.length;i++){
+    if(Number.isFinite(clean[i]))continue;
+    let before=i-1,after=i+1;
+    while(before>=0&&!Number.isFinite(clean[before]))before--;
+    while(after<clean.length&&!Number.isFinite(clean[after]))after++;
+    if(before>=0&&after<clean.length){const t=(i-before)/(after-before);clean[i]=clean[before]+(clean[after]-clean[before])*t}
+    else if(before>=0)clean[i]=clean[before];else if(after<clean.length)clean[i]=clean[after];
+  }
+  return clean;
+}
+function smoothElevations(vals,radius=2){
+  return vals.map((_,i)=>{let s=0,n=0;for(let k=Math.max(0,i-radius);k<=Math.min(vals.length-1,i+radius);k++){if(Number.isFinite(vals[k])){s+=vals[k];n++}}return n?s/n:0});
+}
+function lonLatToTilePixel(lon,lat,z){
+  const n=2**z,xFloat=(lon+180)/360*n,latRad=lat*Math.PI/180,yFloat=(1-Math.asinh(Math.tan(latRad))/Math.PI)/2*n;
+  const x=Math.floor(xFloat),y=Math.floor(yFloat),px=Math.max(0,Math.min(255,Math.floor((xFloat-x)*256))),py=Math.max(0,Math.min(255,Math.floor((yFloat-y)*256)));
+  return {z,x,y,px,py,key:`${z}/${x}/${y}`};
+}
+async function loadTerrariumTile(tile){
+  if(TERRARIUM_TILE_CACHE.has(tile.key))return TERRARIUM_TILE_CACHE.get(tile.key);
+  const promise=(async()=>{
+    const url=`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${tile.z}/${tile.x}/${tile.y}.png`;
+    const response=await fetch(url,{mode:"cors",cache:"force-cache"});
+    if(!response.ok)throw new Error(`Tuile altitude HTTP ${response.status}`);
+    const blob=await response.blob();const bitmap=await createImageBitmap(blob);const canvas=document.createElement("canvas");canvas.width=256;canvas.height=256;
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(bitmap,0,0);return ctx.getImageData(0,0,256,256).data;
+  })();
+  TERRARIUM_TILE_CACHE.set(tile.key,promise);return promise;
+}
+async function fetchTerrariumElevations(sampled,z=14){
+  const tiles=sampled.map(p=>lonLatToTilePixel(p.coord[0],p.coord[1],z));const unique=[...new Map(tiles.map(t=>[t.key,t])).values()];
+  setStatus(`Chargement MNT : ${unique.length} tuile(s) de relief…`);
+  await Promise.all(unique.map(loadTerrariumTile));
+  return Promise.all(tiles.map(async t=>{const data=await TERRARIUM_TILE_CACHE.get(t.key),i=(t.py*256+t.px)*4,r=data[i],g=data[i+1],b=data[i+2];return r*256+g+b/256-32768}));
+}
+async function fetchElevationsOnline(sampled){
+  const out=[];const batchSize=80;
+  for(let i=0;i<sampled.length;i+=batchSize){
+    const chunk=sampled.slice(i,i+batchSize);setStatus(`Service altimétrique : ${Math.min(i+chunk.length,sampled.length)} / ${sampled.length} points…`);
+    const lat=chunk.map(p=>p.coord[1].toFixed(7)).join(","),lon=chunk.map(p=>p.coord[0].toFixed(7)).join(",");
+    const response=await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}`,{cache:"no-store"});
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();let elevs=data.elevation;if(!Array.isArray(elevs))elevs=[elevs];if(elevs.length!==chunk.length)throw new Error("Nombre de valeurs altitude inattendu");out.push(...elevs.map(Number));
+  }
+  return out;
+}
+function waitIdle(ms){return new Promise(resolve=>{let done=false;const f=()=>{if(done)return;done=true;resolve()};map.once("idle",f);setTimeout(f,ms)})}
+function calcStats(profile){
+  if(!profile||!profile.length)return {};
+  let up=0,down=0,maxUp=-Infinity,maxDown=Infinity,maxAngle=0;
+  const slopes=[0],angles=[0],cumUp=[0],cumDown=[0];
+  for(let i=1;i<profile.length;i++){
+    const dx=Math.max(.01,profile[i].dist-profile[i-1].dist),dz=profile[i].elev-profile[i-1].elev;
+    if(dz>.35)up+=dz;if(dz<-.35)down-=dz;
+    const slope=100*dz/dx,angle=Math.atan(slope/100)*180/Math.PI;
+    slopes.push(slope);angles.push(angle);cumUp.push(up);cumDown.push(down);
+    maxUp=Math.max(maxUp,slope);maxDown=Math.min(maxDown,slope);maxAngle=Math.max(maxAngle,Math.abs(angle));
+  }
+  profile.forEach((p,i)=>{p.slope=slopes[i];p.angle=angles[i];p.cumUp=cumUp[i];p.cumDown=cumDown[i]});
+  const elevs=profile.map(p=>p.elev);return {distance:profile.at(-1).dist,up,down,min:Math.min(...elevs),max:Math.max(...elevs),maxUp,maxDown,maxAngle};
+}
+function updateStats(){
+  if(!activeProfile||!activeProfile.stats)return;
+  const st=activeProfile.stats,idx=Math.round((+document.getElementById("progress").value/1000)*(activeProfile.length-1)),p=activeProfile[idx]||activeProfile[0];
+  setTxt("s-distance",(st.distance/1000).toFixed(2)+" km");setTxt("s-altitude",p.elev.toFixed(0)+" m");setTxt("s-up","+"+st.up.toFixed(0)+" m");setTxt("s-down","−"+st.down.toFixed(0)+" m");
+  setTxt("s-slope",(p.slope||0).toFixed(1)+" %");setTxt("s-angle",(p.angle||0).toFixed(1)+"°");setTxt("s-min",st.min.toFixed(0)+" m");setTxt("s-max",st.max.toFixed(0)+" m");
+  setTxt("p-current",(p.dist/1000).toFixed(2)+" km");setTxt("p-progress",Math.round(p.dist/st.distance*100)+" %");setTxt("p-maxup","+"+st.maxUp.toFixed(1)+" %");setTxt("p-maxdown",st.maxDown.toFixed(1)+" %");setTxt("p-maxangle",st.maxAngle.toFixed(1)+"°");
+}
+function renderCompare(){
+  const tbody=document.getElementById("compareBody");tbody.innerHTML="";
+  Object.keys(ROUTES).forEach(n=>{const s=routeAnalysis[n]?.stats;const tr=document.createElement("tr");tr.innerHTML=s?`<td>${n}</td><td>${(s.distance/1000).toFixed(2)}</td><td>+${s.up.toFixed(0)} m</td><td>−${s.down.toFixed(0)} m</td><td>${s.min.toFixed(0)}</td><td>${s.max.toFixed(0)}</td><td>${s.maxUp.toFixed(1)}%</td><td>${s.maxDown.toFixed(1)}%</td>`:`<td>${n}</td><td colspan="7">calcul…</td>`;tbody.appendChild(tr)})
+}
+function updateCursor(){
+  if(!activeProfile||!activeProfile.length)return;
+  const frac=+document.getElementById("progress").value/1000,idx=Math.round(frac*(activeProfile.length-1)),p=activeProfile[idx];
+  const coords=activeProfile.map(x=>x.coord),partial=coords.slice(0,idx+1);
+  const progressSource=map.getSource("route-progress");if(progressSource)progressSource.setData(fcLine(partial));
+  const cursorSource=map.getSource("cursor");if(cursorSource)cursorSource.setData(pointFC(p.coord));
+  if(runnerMarker)runnerMarker.setLngLat(p.coord);
+  document.getElementById("progressOut").value=(p.dist/1000).toFixed(2)+" km";
+  updateStats();drawProfile();
+  if(followCamera&&idx<activeProfile.length-1){
+    map.easeTo({center:p.coord,bearing:bearing(p.coord,activeProfile[Math.min(idx+3,activeProfile.length-1)].coord),pitch:is3D?62:0,zoom:is3D?15.1:14,duration:180});
+  }
+}
+function togglePlay(){
+  if(!activeProfile||!activeProfile.length){setStatus("Le profil est encore en cours de calcul. Patientez quelques secondes puis relancez l’animation.");return}
+  playing=!playing;const btn=document.getElementById("playBtn");btn.textContent=playing?"❚❚":"▶";btn.title=playing?"Mettre en pause":"Lire l’animation";
+  if(playTimer)clearInterval(playTimer);
+  if(playing){playTimer=setInterval(()=>{const r=document.getElementById("progress");let v=+r.value+3;if(v>1000)v=0;r.value=v;updateCursor()},85)}
+}
+
+function slopeColor(v){
+  if(v>=12)return "#d9574f";
+  if(v>=6)return "#ed8b35";
+  if(v>=2)return "#f5c451";
+  if(v<=-6)return "#3988c7";
+  return "#2a9d73";
+}
+function drawProfile(){
+  const c=document.getElementById("profileCanvas"),ctx=c.getContext("2d"),rect=c.getBoundingClientRect(),ratio=window.devicePixelRatio||1;
+  c.width=Math.max(1,rect.width*ratio);c.height=Math.max(1,rect.height*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);
+  const sc=document.getElementById("slopeCanvas"),sctx=sc.getContext("2d"),srect=sc.getBoundingClientRect();
+  sc.width=Math.max(1,srect.width*ratio);sc.height=Math.max(1,srect.height*ratio);sctx.setTransform(ratio,0,0,ratio,0,0);
+  const w=rect.width,h=rect.height,sw=srect.width,sh=srect.height;
+  ctx.clearRect(0,0,w,h);sctx.clearRect(0,0,sw,sh);ctx.fillStyle="#ffffff";ctx.fillRect(0,0,w,h);sctx.fillStyle="#ffffff";sctx.fillRect(0,0,sw,sh);
+  if(!activeProfile?.length){ctx.fillStyle="#5d716a";ctx.font="bold 14px system-ui";ctx.fillText("Chargement du profil altimétrique…",18,34);ctx.font="12px system-ui";ctx.fillText("Patientez quelques secondes ou utilisez « Recalculer le profil ».",18,56);return;}
+  const st=activeProfile.stats,pad={l:56,r:18,t:18,b:30},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b,range=Math.max(12,st.max-st.min);
+  ctx.font="11px system-ui";ctx.fillStyle="#6b7d77";ctx.strokeStyle="#e2ebe7";ctx.lineWidth=1;
+  // horizontal altitude grid
+  for(let i=0;i<=4;i++){
+    const y=pad.t+ph*i/4,alt=st.max-range*i/4;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillText(alt.toFixed(0)+" m",7,y+4);
+  }
+  // vertical kilometer grid
+  const kmTotal=st.distance/1000,step=kmTotal>16?2:1;
+  for(let km=0;km<=Math.floor(kmTotal);km+=step){
+    const x=pad.l+pw*(km*1000/st.distance);ctx.strokeStyle="#eef3f1";ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,h-pad.b);ctx.stroke();ctx.fillStyle="#71827d";ctx.fillText(km+" km",x-10,h-9);
+  }
+  // pale fill under elevation profile
+  ctx.beginPath();activeProfile.forEach((p,i)=>{const x=pad.l+pw*p.dist/st.distance,y=pad.t+ph*(st.max-p.elev)/range;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+  ctx.lineTo(w-pad.r,h-pad.b);ctx.lineTo(pad.l,h-pad.b);ctx.closePath();
+  const g=ctx.createLinearGradient(0,pad.t,0,h-pad.b);g.addColorStop(0,"rgba(42,157,115,.42)");g.addColorStop(1,"rgba(42,157,115,.05)");ctx.fillStyle=g;ctx.fill();
+  // color each segment by slope
+  ctx.lineWidth=3;ctx.lineJoin="round";ctx.lineCap="round";
+  for(let i=1;i<activeProfile.length;i++){
+    const a=activeProfile[i-1],b=activeProfile[i],x1=pad.l+pw*a.dist/st.distance,y1=pad.t+ph*(st.max-a.elev)/range,x2=pad.l+pw*b.dist/st.distance,y2=pad.t+ph*(st.max-b.elev)/range;
+    ctx.strokeStyle=slopeColor(b.slope||0);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  }
+  // min / max markers
+  let imin=0,imax=0;activeProfile.forEach((p,i)=>{if(p.elev<activeProfile[imin].elev)imin=i;if(p.elev>activeProfile[imax].elev)imax=i});
+  function marker(p,label,color,up){const x=pad.l+pw*p.dist/st.distance,y=pad.t+ph*(st.max-p.elev)/range;ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();ctx.font="bold 11px system-ui";ctx.fillText(label+" "+p.elev.toFixed(0)+" m",Math.min(w-95,Math.max(58,x+6)),Math.max(13,Math.min(h-12,y+(up?-9:16))))}
+  marker(activeProfile[imax],"MAX","#d9574f",true);marker(activeProfile[imin],"MIN","#3487d4",false);
+  // synchronized cursor + point
+  const frac=+document.getElementById("progress").value/1000,idx=Math.round(frac*(activeProfile.length-1)),p=activeProfile[idx],x=pad.l+pw*frac,y=pad.t+ph*(st.max-p.elev)/range;
+  ctx.strokeStyle="#17302c";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,h-pad.b);ctx.stroke();ctx.fillStyle="#ffffff";ctx.beginPath();ctx.arc(x,y,5.5,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#17302c";ctx.lineWidth=2;ctx.stroke();
+  // slope strip
+  const spad={l:56,r:18,t:10,b:18},spw=sw-spad.l-spad.r,sph=sh-spad.t-spad.b,maxAbs=Math.max(15,Math.min(35,Math.max(...activeProfile.map(p=>Math.abs(p.slope||0)))));
+  sctx.font="10px system-ui";sctx.fillStyle="#73847f";sctx.strokeStyle="#e2ebe7";
+  const zeroY=spad.t+sph/2;sctx.beginPath();sctx.moveTo(spad.l,zeroY);sctx.lineTo(sw-spad.r,zeroY);sctx.stroke();sctx.fillText("0%",20,zeroY+3);
+  [-maxAbs,maxAbs].forEach(v=>{const yy=zeroY-(v/maxAbs)*(sph/2-2);sctx.fillText((v>0?"+":"")+v.toFixed(0)+"%",10,yy+3)});
+  for(let i=1;i<activeProfile.length;i++){
+    const a=activeProfile[i-1],b=activeProfile[i],x1=spad.l+spw*a.dist/st.distance,x2=spad.l+spw*b.dist/st.distance,val=Math.max(-maxAbs,Math.min(maxAbs,b.slope||0)),yy=zeroY-(val/maxAbs)*(sph/2-2);
+    sctx.strokeStyle=slopeColor(val);sctx.lineWidth=Math.max(1.5,x2-x1+1);sctx.beginPath();sctx.moveTo((x1+x2)/2,zeroY);sctx.lineTo((x1+x2)/2,yy);sctx.stroke();
+  }
+  const sx=spad.l+spw*frac;sctx.strokeStyle="#17302c";sctx.lineWidth=1.5;sctx.beginPath();sctx.moveTo(sx,spad.t);sctx.lineTo(sx,sh-spad.b);sctx.stroke();
+}
+function profilePointerToProgress(canvas,clientX){
+  if(!activeProfile||!activeProfile.length)return;
+  const r=canvas.getBoundingClientRect(),leftPad=56,rightPad=18;
+  const frac=Math.max(0,Math.min(1,(clientX-r.left-leftPad)/(Math.max(1,r.width-leftPad-rightPad))));
+  document.getElementById("progress").value=Math.round(frac*1000);
+  updateCursor();
+}
+function bindProfilePointer(canvas){
+  let dragging=false;
+  canvas.addEventListener("pointerdown",e=>{
+    dragging=true;
+    canvas.setPointerCapture?.(e.pointerId);
+    profilePointerToProgress(canvas,e.clientX);
+    e.preventDefault();
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(!dragging)return;
+    profilePointerToProgress(canvas,e.clientX);
+    e.preventDefault();
+  });
+  const stop=e=>{
+    if(!dragging)return;
+    dragging=false;
+    try{canvas.releasePointerCapture?.(e.pointerId)}catch(_err){}
+    e.preventDefault();
+  };
+  canvas.addEventListener("pointerup",stop);
+  canvas.addEventListener("pointercancel",stop);
+  canvas.addEventListener("lostpointercapture",()=>{dragging=false});
+  canvas.addEventListener("click",e=>profilePointerToProgress(canvas,e.clientX));
+}
+
+
+
+function toggleDraw(){
+  drawMode=!drawMode;
+  const btn=document.getElementById("drawBtn");
+  btn.classList.toggle("draw-active",drawMode);
+  btn.textContent=drawMode?"Cliquez 2 points sur la carte":"Tracer un segment";
+  map.getCanvas().style.cursor=drawMode?"crosshair":"";
+  setStatus(drawMode?"Mode segment actif : cliquez sur le point de départ puis le point d’arrivée.":"Mode segment désactivé.");
+}
+function mapClick(e){
+  if(!drawMode)return;
+  if(drawPoints.length>=2)drawPoints=[];
+  drawPoints.push([e.lngLat.lng,e.lngLat.lat]);
+  const pts=drawPoints.map(c=>({type:"Feature",properties:{},geometry:{type:"Point",coordinates:c}}));
+  const pointSource=map.getSource("draw-points");if(pointSource)pointSource.setData({type:"FeatureCollection",features:pts});
+  const segSource=map.getSource("draw-segment");if(segSource)segSource.setData(fcLine(drawPoints));
+  if(drawPoints.length===1){setStatus("Premier point enregistré. Cliquez sur le point d’arrivée.");return}
+  drawMode=false;map.getCanvas().style.cursor="";document.getElementById("drawBtn").classList.remove("draw-active");document.getElementById("drawBtn").textContent="Tracer un segment";
+  analyseSegment();
+}
+function clearSegment(){
+  drawMode=false;drawPoints=[];map.getCanvas().style.cursor="";
+  document.getElementById("drawBtn").classList.remove("draw-active");document.getElementById("drawBtn").textContent="Tracer un segment";
+  const seg=map.getSource("draw-segment");if(seg)seg.setData(fcLine([]));
+  const pts=map.getSource("draw-points");if(pts)pts.setData({type:"FeatureCollection",features:[]});
+  activeProfileKind="route";activeProfile=routeAnalysis[activeName]||null;
+  document.getElementById("sliderLabel").textContent="Position sur le parcours "+activeName;document.getElementById("progress").value=0;
+  if(activeProfile){updateStats();drawProfile();updateCursor()}
+  setStatus("Segment effacé. Analyse du parcours "+activeName+" réactivée.");
+}
+
+function circlePolygon(center,radiusMeters,steps=48){
+  const [lon,lat]=center,coords=[];const R=6371000,latRad=lat*Math.PI/180;
+  for(let i=0;i<=steps;i++){
+    const brg=2*Math.PI*i/steps;
+    const dLat=(radiusMeters*Math.cos(brg))/R*180/Math.PI;
+    const dLon=(radiusMeters*Math.sin(brg))/(R*Math.max(.2,Math.cos(latRad)))*180/Math.PI;
+    coords.push([lon+dLon,lat+dLat]);
+  }
+  return {type:"FeatureCollection",features:[{type:"Feature",properties:{},geometry:{type:"Polygon",coordinates:[coords]}}]};
+}
+function nearestOnRoute(point,coords){
+  if(!coords||coords.length<2)return null;
+  const R=6371000,refLat=point[1]*Math.PI/180;
+  const toXY=c=>({x:(c[0]-point[0])*Math.PI/180*R*Math.cos(refLat),y:(c[1]-point[1])*Math.PI/180*R});
+  const toLL=xy=>[point[0]+xy.x/(R*Math.cos(refLat))*180/Math.PI,point[1]+xy.y/R*180/Math.PI];
+  let best={dist:Infinity,coord:coords[0],routeDist:0,segIndex:0};let walked=0;
+  for(let i=1;i<coords.length;i++){
+    const a=toXY(coords[i-1]),b=toXY(coords[i]);const vx=b.x-a.x,vy=b.y-a.y;const len2=vx*vx+vy*vy;
+    const t=len2?Math.max(0,Math.min(1,(-a.x*vx-a.y*vy)/len2)):0;
+    const proj={x:a.x+t*vx,y:a.y+t*vy};const dist=Math.hypot(proj.x,proj.y);
+    const segLen=hav(coords[i-1],coords[i]);
+    if(dist<best.dist)best={dist,coord:toLL(proj),routeDist:walked+t*segLen,segIndex:i-1};
+    walked+=segLen;
+  }
+  return best;
+}
+function updateGpsSources(coord,accuracy,nearest){
+  const loc=map.getSource("gps-location");if(loc)loc.setData(pointFC(coord));
+  const acc=map.getSource("gps-accuracy");if(acc&&Number.isFinite(accuracy))acc.setData(circlePolygon(coord,Math.max(5,Math.min(accuracy,150))));
+  const link=map.getSource("gps-nearest");if(link)link.setData(nearest?fcLine([coord,nearest.coord]):fcLine([]));
+}
+function setTerrainStatus(message,level="warn"){
+  const el=document.getElementById("terrain-status");if(!el)return;
+  el.textContent=message;el.classList.remove("ok","warn","ko");el.classList.add(level);
+}
+function setGpsButtonState(active,label){
+  const btn=document.getElementById("mapLocateBtn");if(!btn)return;
+  btn.classList.toggle("active",!!active);
+  btn.textContent=label||((active?"📍 GPS actif":"📍 Localiser"));
+}
+function updateFollowButton(){
+  const b=document.getElementById("mapFollowBtn");if(!b)return;
+  b.classList.toggle("active",gpsFollow);
+  b.innerHTML="🎯 Suivi <small>"+(gpsFollow?"activé":"désactivé")+"</small>";
+}
+function gpsErrorMessage(err){
+  const secure=(window.isSecureContext||location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1");
+  if(!secure)return "GPS bloqué par le navigateur : publiez le viewer sur une page HTTPS, puis ouvrez le lien depuis Safari/Chrome.";
+  if(err&&err.code===1)return "Localisation refusée : autorisez la position pour ce site dans les réglages du navigateur.";
+  if(err&&err.code===2)return "Position indisponible : sortez à l’extérieur, activez les données mobiles et réessayez.";
+  if(err&&err.code===3)return "Temps de recherche GPS dépassé : réessayez dehors avec une bonne réception.";
+  return "GPS non activé : "+(err&&err.message?err.message:"erreur inconnue");
+}
+function updateGpsTerrain(pos){
+  if(!pos)return;
+  const coord=[pos.coords.longitude,pos.coords.latitude],accuracy=pos.coords.accuracy;
+  latestGps=pos;
+  const nearest=nearestOnRoute(coord,getCurrentCoords());
+  updateGpsSources(coord,accuracy,nearest);
+  setTxt("terrain-accuracy",Number.isFinite(accuracy)?Math.round(accuracy)+" m":"—");
+  setTxt("terrain-route",activeName||"—");
+  if(nearest){
+    setTxt("terrain-dist",Math.round(nearest.dist)+" m");
+    setTxt("terrain-km",(nearest.routeDist/1000).toFixed(2)+" km");
+    if(nearest.dist<=GPS_ON_ROUTE_M)setTerrainStatus("GPS actif. Vous êtes sur le parcours sélectionné.","ok");
+    else if(nearest.dist<=GPS_WARN_ROUTE_M)setTerrainStatus("GPS actif. Vous êtes proche de la trace : vérifiez le prochain embranchement.","warn");
+    else setTerrainStatus("GPS actif mais hors trace probable sur le parcours "+activeName+".","ko");
+  }
+  if(gpsFollow)map.easeTo({center:coord,zoom:16.3,pitch:is3D?55:0,duration:700});
+}
+function startGpsWatch(){
+  const opts={enableHighAccuracy:true,maximumAge:0,timeout:20000};
+  setGpsButtonState(true,"📍 Recherche…");
+  setTerrainStatus("Recherche de la position GPS… Autorisez la localisation si le téléphone le demande.","warn");
+  navigator.geolocation.getCurrentPosition(pos=>{setGpsButtonState(true,"📍 GPS actif");updateGpsTerrain(pos);if(gpsFollow)centerOnGps();},err=>{setGpsButtonState(false,"📍 Localiser");setTerrainStatus(gpsErrorMessage(err),"ko")},opts);
+  gpsWatchId=navigator.geolocation.watchPosition(pos=>{setGpsButtonState(true,"📍 GPS actif");updateGpsTerrain(pos)},err=>{stopGpsWatch(false);setTerrainStatus(gpsErrorMessage(err),"ko")},opts);
+}
+function stopGpsWatch(message=true){
+  if(gpsWatchId!==null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;}
+  setGpsButtonState(false,"📍 Localiser");
+  if(message)setTerrainStatus("GPS arrêté. Appuyez sur 📍 Localiser pour relancer.","warn");
+}
+function toggleTerrainGps(){
+  if(gpsWatchId!==null){stopGpsWatch(true);return}
+  if(!("geolocation" in navigator)){setTerrainStatus("GPS indisponible sur ce navigateur.","ko");return}
+  const secure=(window.isSecureContext||location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1");
+  if(!secure){setGpsButtonState(false,"📍 Localiser");setTerrainStatus("GPS bloqué : ouvrez ce viewer depuis une URL HTTPS. Sur téléphone, un fichier HTML local peut afficher la carte mais refuser la localisation.","ko");return}
+  startGpsWatch();
+}
+function toggleGpsFollow(){
+  gpsFollow=!gpsFollow;updateFollowButton();
+  if(gpsFollow&&latestGps)centerOnGps();
+  if(gpsFollow&&!latestGps)setTerrainStatus("Suivi activé. Appuyez maintenant sur 📍 Localiser.","warn");
+}
+function centerOnGps(){
+  if(!latestGps){setTerrainStatus("Aucune position GPS disponible. Appuyez d’abord sur 📍 Localiser dans la carte.","warn");return}
+  const coord=[latestGps.coords.longitude,latestGps.coords.latitude];map.easeTo({center:coord,zoom:16.5,pitch:is3D?55:0,duration:600});
+}
+async function copyShareText(){
+  const txt="Viewer Trail Sadirac — reconnaissance des 3 parcours : ouvrez le lien HTTPS, choisissez le parcours 8 km / 12 km / 21 km, puis utilisez 📍 Localiser dans la carte. Les cartes et l’altimétrie nécessitent internet.";
+  try{await navigator.clipboard.writeText(txt);setTerrainStatus("Consigne de partage copiée.","ok")}
+  catch(_err){setTerrainStatus(txt,"warn")}
+}
+
+function exportMap(){
+  try{const uri=map.getCanvas().toDataURL("image/png");download(uri,"trail-sadirac-carte-"+activeName.replace(/\s+/g,"-").toLowerCase()+".png")}catch(err){alert("Export carte impossible : "+err.message)}
+}
+function exportProfile(){
+  if(!activeProfile||!activeProfile.length)return setStatus("Aucun profil disponible à exporter.");
+  drawProfile();
+  const a=document.getElementById("profileCanvas"),b=document.getElementById("slopeCanvas"),gap=12;
+  const c=document.createElement("canvas");c.width=Math.max(a.width,b.width);c.height=a.height+b.height+gap;
+  const ctx=c.getContext("2d");ctx.fillStyle="#ffffff";ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(a,0,0);ctx.drawImage(b,0,a.height+gap);
+  download(c.toDataURL("image/png"),"trail-sadirac-profil-"+activeProfile.name.replace(/\s+/g,"-").toLowerCase()+".png");
+}
+function exportCSV(){
+  if(!activeProfile||!activeProfile.length)return setStatus("Aucun profil disponible à exporter.");
+  const rows=[["distance_m","distance_km","longitude","latitude","altitude_m","pente_pct","angle_deg","denivele_plus_cumule_m","denivele_moins_cumule_m"]];
+  activeProfile.forEach(p=>rows.push([p.dist.toFixed(1),(p.dist/1000).toFixed(3),p.coord[0].toFixed(7),p.coord[1].toFixed(7),p.elev.toFixed(1),(p.slope||0).toFixed(2),(p.angle||0).toFixed(2),(p.cumUp||0).toFixed(1),(p.cumDown||0).toFixed(1)]));
+  const csv=rows.map(r=>r.join(";")).join("\n");download("data:text/csv;charset=utf-8,"+encodeURIComponent(csv),"trail-sadirac-profil-"+activeProfile.name.replace(/\s+/g,"-").toLowerCase()+".csv");
+}
+function exportGPX(){
+  if(!activeProfile||!activeProfile.length)return setStatus("Aucun profil disponible à exporter.");
+  const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const name=activeProfile.name||activeName;
+  const pts=activeProfile.map(p=>`    <trkpt lat="${p.coord[1].toFixed(7)}" lon="${p.coord[0].toFixed(7)}"><ele>${p.elev.toFixed(1)}</ele></trkpt>`).join("\n");
+  const xml=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Trail Sadirac" xmlns="http://www.topografix.com/GPX/1/1">\n  <trk><name>${esc(name)}</name><trkseg>\n${pts}\n  </trkseg></trk>\n</gpx>`;
+  download("data:application/gpx+xml;charset=utf-8,"+encodeURIComponent(xml),"trail-sadirac-"+name.replace(/\s+/g,"-").toLowerCase()+"-altitudes.gpx");
+}
+
+function download(uri,name){const a=document.createElement("a");a.href=uri;a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function setTxt(id,v){document.getElementById(id).textContent=v}
+async function importGeoJSON(e){const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text()),lines=[];function rec(g){if(!g)return;if(g.type==="LineString")lines.push(g.coordinates.map(c=>[+c[0],+c[1]]));else if(g.type==="MultiLineString")g.coordinates.forEach(l=>lines.push(l.map(c=>[+c[0],+c[1]])))};(data.features||[]).forEach(ft=>rec(ft.geometry));if(data.type==="Feature")rec(data.geometry);if(!lines.length)throw new Error("Aucune ligne");const coords=lines.flat();const name="Import "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});ROUTES[name]={name,coordinates:coords,distance_km:routeLength(coords)/1000};COLORS[name]="#6ee7ff";addTrack(name,coords);const o=document.createElement("option");o.value=name;o.textContent=name;document.getElementById("activeTrack").appendChild(o);document.getElementById("activeTrack").value=name;activeName=name;styleTracks();fitActive();await analyseRoute(name,true,true)}catch(err){alert("GeoJSON non exploitable : "+err.message)}}
+</script>
+</body>
+</html>
