@@ -908,4 +908,5 @@ function setTxt(id,v){document.getElementById(id).textContent=v}
 async function importGeoJSON(e){const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text()),lines=[];function rec(g){if(!g)return;if(g.type==="LineString")lines.push(g.coordinates.map(c=>[+c[0],+c[1]]));else if(g.type==="MultiLineString")g.coordinates.forEach(l=>lines.push(l.map(c=>[+c[0],+c[1]])))};(data.features||[]).forEach(ft=>rec(ft.geometry));if(data.type==="Feature")rec(data.geometry);if(!lines.length)throw new Error("Aucune ligne");const coords=lines.flat();const name="Import "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});ROUTES[name]={name,coordinates:coords,distance_km:routeLength(coords)/1000};COLORS[name]="#6ee7ff";addTrack(name,coords);const o=document.createElement("option");o.value=name;o.textContent=name;document.getElementById("activeTrack").appendChild(o);document.getElementById("activeTrack").value=name;activeName=name;styleTracks();fitActive();await analyseRoute(name,true,true)}catch(err){alert("GeoJSON non exploitable : "+err.message)}}
 </script>
 </body>
-</html>
+</html><!-- redeploiement GitHub Pages -->
+
