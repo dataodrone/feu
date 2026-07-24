@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#8f1118" />
+<title>Gironde — Feux & alertes</title>
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
+<style>
+:root{
+  --header-h:64px;--left-w:276px;--right-w:370px;
+  --bg:#07131e;--panel:#091925;--panel2:#0d2230;--line:#213746;
+  --text:#f4f7f9;--muted:#9db0bd;--red:#d92d33;--red2:#99151c;
+  --orange:#f38a1f;--blue:#287ce0;--green:#25ad63;--purple:#9b59d0;
+  --shadow:0 15px 45px rgba(0,0,0,.3);--radius:14px;
+}
+*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+a{color:inherit}.hidden{display:none!important}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#app{height:100%;display:grid;grid-template-rows:var(--header-h) 1fr}
+header{display:grid;grid-template-columns:var(--left-w) minmax(260px,1fr) var(--right-w);align-items:center;background:linear-gradient(110deg,#7f0d13,#b3121b 55%,#760910);box-shadow:0 2px 12px rgba(0,0,0,.35);z-index:1100}
+.brand{height:100%;display:flex;align-items:center;gap:11px;padding:0 18px;border-right:1px solid rgba(255,255,255,.15)}
+.brand-logo{width:34px;height:40px;display:grid;place-items:center;border:2px solid #fff;border-radius:17px 17px 12px 12px;font-size:20px;background:rgba(255,255,255,.08)}
+.brand strong{display:block;font-size:16px;letter-spacing:.3px}.brand small{display:block;font-size:11px;font-weight:800;letter-spacing:.6px;margin-top:2px}
+.search-wrap{padding:0 20px;position:relative}.search-wrap input{width:100%;height:40px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.09);color:#fff;padding:0 46px 0 15px;outline:none}.search-wrap input::placeholder{color:#f0c9cb}.search-wrap input:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.14)}
+.search-btn{position:absolute;right:26px;top:5px;width:34px;height:32px;border:0;background:transparent;color:#fff;font-size:19px}
+.header-actions{height:100%;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 14px;border-left:1px solid rgba(255,255,255,.15)}
+.hbtn{height:38px;border:0;border-radius:8px;color:#fff;background:rgba(255,255,255,.08);padding:0 12px;font-weight:800;font-size:12px;display:flex;align-items:center;gap:8px}.hbtn:hover{background:rgba(255,255,255,.16)}.badge{min-width:20px;height:20px;border-radius:10px;display:grid;place-items:center;background:#e3262e;font-size:11px;padding:0 5px}
+.main{display:grid;grid-template-columns:var(--left-w) minmax(0,1fr) var(--right-w);min-height:0}
+.sidebar,.feed-panel{background:linear-gradient(180deg,#081722,#06131e);z-index:800;min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#314a5a transparent}
+.sidebar{border-right:1px solid var(--line)}.feed-panel{border-left:1px solid var(--line)}
+.side-section{padding:14px 16px;border-bottom:1px solid var(--line)}.nav-btn{width:100%;height:45px;border:0;border-radius:8px;background:transparent;color:#eaf0f3;text-align:left;padding:0 12px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:750}.nav-btn:hover,.nav-btn.active{background:#122635}.nav-btn.active{color:#ff4b51}.nav-icon{width:22px;text-align:center;font-size:18px}.nav-btn .plus{margin-left:auto;background:var(--red);width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:18px}
+.section-title{font-size:11px;color:#91a5b2;letter-spacing:.6px;text-transform:uppercase;font-weight:850;margin:0 0 12px}.filter-group{margin-bottom:15px}.filter-group h4{font-size:11px;margin:0 0 8px;color:#eaf0f3;letter-spacing:.4px}.check{display:flex;align-items:center;gap:9px;font-size:12px;margin:8px 0;cursor:pointer}.check input{display:none}.box{width:19px;height:19px;border-radius:5px;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:900;background:#50606a}.check input:checked+.box::after{content:'✓'}.box.red{background:var(--red)}.box.orange{background:var(--orange)}.box.blue{background:var(--blue)}.box.gray{background:#677783}.box.green{background:var(--green)}.box.purple{background:var(--purple)}
+.emergency{width:100%;min-height:42px;border:0;border-radius:7px;background:linear-gradient(#c51f26,#a81219);color:#fff;font-weight:900;font-size:12px;padding:10px}.emergency:hover{filter:brightness(1.08)}
+.status-card{background:#0a1b27;border:1px solid #1d3949;border-radius:9px;padding:12px;margin-top:10px}.status-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;margin:7px 0}.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}.ok{background:#24c568;box-shadow:0 0 10px rgba(36,197,104,.6)}.warn{background:#f1a227}.off{background:#798892}.source-link{display:block;color:#9ad1ff;text-decoration:none;font-size:11px;margin-top:8px}.source-link:hover{text-decoration:underline}
+.map-shell{position:relative;min-width:0;min-height:0;background:#c8d5d3}.map{width:100%;height:100%}.map-overlay-top{position:absolute;z-index:650;left:14px;right:14px;top:12px;display:flex;justify-content:space-between;pointer-events:none}.map-chip{pointer-events:auto;background:rgba(6,21,31,.9);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 10px;font-size:11px;box-shadow:var(--shadow);backdrop-filter:blur(8px)}.map-chip b{color:#fff}.map-chip span{color:#9fb4c1}.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#29d470;margin-right:6px;animation:pulse 1.7s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.map-tools{position:absolute;z-index:650;right:13px;top:58px;display:grid;gap:7px}.tool-btn{width:40px;height:40px;border:1px solid rgba(6,21,31,.22);border-radius:8px;background:#fff;color:#10212b;font-size:18px;box-shadow:0 3px 12px rgba(0,0,0,.2)}.tool-btn.active{background:#bd171f;color:#fff;border-color:#bd171f}
+.legend{position:absolute;z-index:650;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(4,17,26,.9);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 12px;display:flex;gap:13px;align-items:center;flex-wrap:wrap;justify-content:center;box-shadow:var(--shadow);font-size:10px;white-space:nowrap}.legend i{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px}.legend .roadline{width:18px;height:3px;border-radius:2px;vertical-align:middle}
+.fallback-map{position:absolute;inset:0;background:linear-gradient(135deg,#b7d7e5 0 18%,#d6e2d2 18% 100%);overflow:hidden}.fallback-map::before{content:'';position:absolute;left:9%;top:-10%;width:18%;height:125%;background:#78b7d0;transform:rotate(7deg);border-radius:40%}.fallback-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(35,90,80,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(35,90,80,.08) 1px,transparent 1px);background-size:52px 52px}.fallback-label{position:absolute;color:#243f3a;font-weight:800;font-size:14px;text-shadow:0 1px #fff}.fallback-marker{position:absolute;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;border:3px solid #fff;box-shadow:0 5px 14px rgba(0,0,0,.35);cursor:pointer;z-index:5}.fallback-marker.fire{background:var(--red)}.fallback-marker.recent{background:var(--orange)}.fallback-marker.report{background:var(--blue)}.fallback-marker.road{background:#171d22;border-radius:8px}
+.feed-head{position:sticky;top:0;z-index:4;background:#0a1a25;border-bottom:1px solid var(--line);padding:14px 14px 12px}.feed-title{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:900}.feed-title span:last-child{color:#31d974;font-size:10px}.feed-tabs{display:flex;gap:5px;margin-top:10px}.tab{border:1px solid #2b4453;background:#0c202d;color:#b8c8d1;border-radius:6px;padding:6px 8px;font-size:10px;font-weight:800}.tab.active{background:#b5171e;color:#fff;border-color:#b5171e}.feed-list{padding-bottom:90px}.feed-item{padding:14px 15px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:32px 1fr;gap:10px;cursor:pointer}.feed-item:hover{background:#0d2230}.feed-icon{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:15px}.feed-icon.fire{background:var(--red)}.feed-icon.recent{background:var(--orange)}.feed-icon.report{background:var(--blue)}.feed-icon.road{background:#4d5963}.feed-icon.official{background:#465867}.feed-item h3{font-size:11px;margin:0 0 5px;color:#fff;text-transform:uppercase;line-height:1.35}.feed-item h3.red{color:#ff4d54}.feed-item h3.orange{color:#ff9e36}.feed-item h3.blue{color:#4da0ff}.feed-item h3.gray{color:#c0ccd3}.feed-item p{font-size:11px;margin:0;color:#d4dde2;line-height:1.4}.feed-meta{font-size:10px;color:#8498a6;margin-top:7px;display:flex;gap:6px;flex-wrap:wrap}.tag{border:1px solid #344b58;border-radius:4px;padding:2px 5px}.tag.source{color:#a8d7ff}.tag.local{color:#8bd8b1}.feed-empty{padding:28px 18px;text-align:center;color:#94a7b3;font-size:12px}
+.drawer{position:fixed;z-index:2000;background:#0b1c28;border:1px solid #2e4654;box-shadow:var(--shadow);border-radius:12px;color:#fff}.modal{left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100% - 24px));max-height:calc(100% - 30px);overflow:auto}.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:14px 15px;border-bottom:1px solid var(--line)}.drawer-head h2{font-size:14px;margin:0}.close-btn{width:30px;height:30px;border:0;background:transparent;color:#fff;font-size:22px}.drawer-body{padding:15px}.notice{background:#251319;border:1px solid #70222a;color:#ffdadd;border-radius:8px;padding:10px;font-size:11px;line-height:1.45;margin-bottom:13px}.notice strong{color:#fff}.step-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.action-card{border:1px solid #39505d;background:#0d2431;color:#fff;border-radius:8px;padding:12px;font-size:11px;font-weight:800}.action-card.primary{background:#a9161d;border-color:#cf2e34}.form-row{margin:11px 0}.form-row label{display:block;font-size:11px;font-weight:800;color:#cbd7dd;margin-bottom:6px}.form-row input,.form-row select,.form-row textarea{width:100%;border:1px solid #354d5b;background:#071722;color:#fff;border-radius:7px;padding:10px;outline:none}.form-row textarea{min-height:82px;resize:vertical}.coords{font-size:10px;color:#92a7b4;margin-top:6px}.photo-preview{max-width:100%;max-height:190px;border-radius:8px;display:block;margin-top:9px}.modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 15px;border-top:1px solid var(--line)}.btn{border:1px solid #35505f;background:#102735;color:#fff;border-radius:7px;padding:9px 12px;font-size:11px;font-weight:850}.btn.primary{background:#1eaa58;border-color:#1eaa58}.btn.danger{background:#b5161e;border-color:#b5161e}.btn:hover{filter:brightness(1.08)}
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.56);z-index:1900;backdrop-filter:blur(2px)}
+.toast-stack{position:fixed;z-index:3000;top:75px;left:50%;transform:translateX(-50%);display:grid;gap:8px;width:min(420px,calc(100% - 24px));pointer-events:none}.toast{background:#102634;border:1px solid #35505e;border-left:4px solid #30bb69;color:#fff;border-radius:8px;padding:11px 13px;box-shadow:var(--shadow);font-size:11px;animation:toastin .2s ease}.toast.warn{border-left-color:#f49a2e}.toast.error{border-left-color:#df3a42}@keyframes toastin{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+.fire-marker,.recent-marker,.report-marker,.false-marker,.road-marker,.me-marker{display:grid;place-items:center;border:3px solid #fff;box-shadow:0 4px 13px rgba(0,0,0,.38);color:#fff;font-size:16px;font-weight:900}.fire-marker{width:35px;height:35px;background:var(--red);border-radius:50%;animation:firepulse 1.8s infinite}.recent-marker{width:31px;height:31px;background:var(--orange);border-radius:50%}.report-marker{width:30px;height:30px;background:var(--blue);border-radius:50%}.false-marker{width:28px;height:28px;background:#6d7d88;border-radius:50%}.road-marker{width:29px;height:29px;background:#1c2429;border-radius:7px}.me-marker{width:25px;height:25px;background:#1e78d7;border-radius:50%;border-width:4px}.me-marker::after{content:'';width:5px;height:5px;background:#fff;border-radius:50%}@keyframes firepulse{0%,100%{box-shadow:0 0 0 0 rgba(217,45,51,.35),0 4px 13px rgba(0,0,0,.38)}50%{box-shadow:0 0 0 11px rgba(217,45,51,0),0 4px 13px rgba(0,0,0,.38)}}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#0b1d29;color:#fff}.leaflet-popup-content{font-size:12px;line-height:1.45}.popup-title{font-size:13px;font-weight:900;margin-bottom:5px}.popup-meta{font-size:10px;color:#9cb1bd;margin:5px 0}.popup-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.popup-actions a,.popup-actions button{border:1px solid #36505e;background:#102835;color:#fff;border-radius:5px;padding:5px 7px;text-decoration:none;font-size:10px}.popup-photo{width:100%;max-height:180px;object-fit:cover;border-radius:6px;margin-top:7px}
+.mobile-bar{display:none}
+@media(max-width:1050px){:root{--left-w:238px;--right-w:330px}.brand strong{font-size:14px}.header-actions .label{display:none}.hbtn{padding:0 10px}}
+@media(max-width:820px){
+  :root{--header-h:58px}#app{grid-template-rows:var(--header-h) 1fr}header{grid-template-columns:1fr auto}.brand{padding:0 12px;border:0}.brand-logo{width:30px;height:34px;font-size:16px}.brand small{font-size:9px}.search-wrap{position:absolute;left:0;right:0;top:58px;background:#8e1017;padding:8px 10px;display:none;z-index:1200}.search-wrap.open{display:block}.search-btn{right:15px;top:12px}.header-actions{border:0;padding:0 7px}.header-actions .official-wide{display:none}.main{grid-template-columns:1fr}.sidebar,.feed-panel{position:fixed;top:var(--header-h);bottom:58px;width:min(350px,90vw);z-index:1500;transition:transform .22s ease}.sidebar{left:0;transform:translateX(-105%)}.sidebar.open{transform:none}.feed-panel{right:0;transform:translateX(105%)}.feed-panel.open{transform:none}.map-shell{grid-column:1}.legend{bottom:70px;max-width:calc(100% - 24px);white-space:normal;gap:8px}.map-overlay-top{top:10px}.map-tools{top:52px;right:9px}.tool-btn{width:38px;height:38px}.mobile-bar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;z-index:1700;bottom:0;left:0;right:0;height:58px;background:#071722;border-top:1px solid #29404e;padding-bottom:env(safe-area-inset-bottom)}.mobile-btn{border:0;background:transparent;color:#cbd6dc;font-size:9px;font-weight:800;display:grid;place-items:center;align-content:center;gap:2px}.mobile-btn span:first-child{font-size:19px}.mobile-btn.primary{background:#a8161d;color:#fff}.toast-stack{top:66px}.modal{top:calc(50% - 20px)}
+}
+@media(max-width:430px){.brand strong{font-size:12px}.brand small{display:none}.brand-logo{width:27px;height:31px}.header-actions{gap:3px}.hbtn{width:36px;padding:0;justify-content:center}.map-chip.secondary{display:none}.legend{font-size:9px;padding:7px}.step-actions{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="brand"><div class="brand-logo">🔥</div><div><strong>CARTO DYNAMIQUE</strong><small>GIRONDE · FEUX & ALERTES</small></div></div>
+  <div class="search-wrap" id="searchWrap"><label class="sr-only" for="searchInput">Rechercher un lieu</label><input id="searchInput" placeholder="Rechercher une commune, une route…" autocomplete="off"><button class="search-btn" id="searchGo" aria-label="Rechercher">⌕</button></div>
+  <div class="header-actions">
+    <button class="hbtn official-wide" id="officialBtn">🔔 <span class="label">ALERTES OFFICIELLES</span><span class="badge" id="officialCount">0</span></button>
+    <button class="hbtn" id="notificationBtn" title="Activer les notifications">◉</button>
+    <button class="hbtn" id="searchToggle" title="Rechercher">⌕</button>
+    <button class="hbtn" id="settingsBtn" title="Paramètres">⚙</button>
+  </div>
+</header>
+<div class="main">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-section">
+      <button class="nav-btn active" data-action="map"><span class="nav-icon">🗺</span>CARTE</button>
+      <button class="nav-btn" data-action="feed"><span class="nav-icon">▤</span>FIL INFO</button>
+      <button class="nav-btn" data-action="report"><span class="nav-icon">♨</span>SIGNALER UN FEU <span class="plus">+</span></button>
+      <button class="nav-btn" data-action="myreports"><span class="nav-icon">▣</span>MES SIGNALEMENTS</button>
+      <button class="nav-btn" data-action="alerts"><span class="nav-icon">♢</span>ALERTES</button>
+    </div>
+    <div class="side-section">
+      <p class="section-title">Filtrer la carte</p>
+      <div class="filter-group"><h4>FEUX</h4>
+        <label class="check"><input type="checkbox" data-layer="fires" checked><span class="box red"></span>Feux en cours</label>
+        <label class="check"><input type="checkbox" data-layer="recent" checked><span class="box orange"></span>Incidents récents</label>
+        <label class="check"><input type="checkbox" data-layer="reports" checked><span class="box blue"></span>Signalements locaux</label>
+        <label class="check"><input type="checkbox" data-layer="false" checked><span class="box gray"></span>Fausses alertes locales</label>
+      </div>
+      <div class="filter-group"><h4>RÉSEAUX</h4>
+        <label class="check"><input type="checkbox" data-layer="roads" checked><span class="box green"></span>Fermetures Inforoutes</label>
+        <label class="check"><input type="checkbox" data-layer="traffic"><span class="box purple"></span>Trafic temps réel (clé)</label>
+      </div>
+      <div class="filter-group"><h4>AFFICHAGE</h4>
+        <label class="check"><input type="checkbox" data-layer="location" checked><span class="box blue"></span>Ma position</label>
+        <label class="check"><input type="checkbox" data-layer="photos" checked><span class="box purple"></span>Photos</label>
+      </div>
+      <button class="emergency" data-action="report">SIGNALER UN DÉPART DE FEU</button>
+    </div>
+    <div class="side-section">
+      <p class="section-title">État des sources</p>
+      <div class="status-card">
+        <div class="status-row"><span><i class="status-dot warn" id="fireSourceDot"></i>Feux de Forêt</span><span id="fireSourceAge">chargement</span></div>
+        <div class="status-row"><span><i class="status-dot warn" id="roadSourceDot"></i>Inforoutes Gironde</span><span id="roadSourceAge">chargement</span></div>
+        <div class="status-row"><span><i class="status-dot off" id="prefSourceDot"></i>Préfecture</span><span id="prefSourceAge">veille web</span></div>
+        <a class="source-link" target="_blank" rel="noopener" href="https://feuxdeforet.fr/cartes/feux/">↗ Ouvrir la carte source</a>
+        <a class="source-link" target="_blank" rel="noopener" href="https://www.gironde.fr/deplacements/inforoutes">↗ Ouvrir Inforoutes</a><a class="source-link" target="_blank" rel="noopener" href="https://www.fr-alert.gouv.fr/">↗ Consulter FR-Alert</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="map-shell">
+    <div id="map" class="map" aria-label="Carte dynamique des feux en Gironde"></div>
+    <div id="fallbackMap" class="fallback-map hidden" aria-label="Carte de secours"><div class="fallback-grid"></div><span class="fallback-label" style="left:47%;top:56%">Bordeaux</span><span class="fallback-label" style="left:25%;top:78%">Bassin d’Arcachon</span><span class="fallback-label" style="left:69%;top:38%">Libournais</span></div>
+    <div class="map-overlay-top">
+      <div class="map-chip"><i class="live-dot"></i><b id="mapStatus">Synchronisation</b> <span id="lastUpdate">—</span></div>
+      <div class="map-chip secondary"><b id="incidentSummary">0 feu en cours</b> <span>· Gironde</span></div>
+    </div>
+    <div class="map-tools">
+      <button class="tool-btn" id="zoomInBtn" title="Zoom avant">＋</button>
+      <button class="tool-btn" id="zoomOutBtn" title="Zoom arrière">−</button>
+      <button class="tool-btn" id="locateBtn" title="Me géolocaliser">◉</button>
+      <button class="tool-btn" id="baseBtn" title="Changer de fond">▧</button>
+      <button class="tool-btn" id="refreshBtn" title="Actualiser">↻</button>
+    </div>
+    <div class="legend" id="legend">
+      <span><i style="background:var(--red)"></i>Feu en cours</span><span><i style="background:var(--orange)"></i>Récent</span><span><i style="background:var(--blue)"></i>Signalement</span><span><i style="background:#6d7d88"></i>Fausse alerte</span><span><i class="roadline" style="background:var(--green)"></i>Inforoutes</span>
+    </div>
+  </main>
+
+  <aside class="feed-panel" id="feedPanel">
+    <div class="feed-head"><div class="feed-title"><span>FIL INFO EN CONTINU</span><span>EN DIRECT</span></div><div class="feed-tabs"><button class="tab active" data-feed="all">TOUT</button><button class="tab" data-feed="fire">FEUX</button><button class="tab" data-feed="official">AUTORITÉS</button><button class="tab" data-feed="road">ROUTES</button></div></div>
+    <div class="feed-list" id="feedList"><div class="feed-empty">Chargement des sources…</div></div>
+  </aside>
+</div>
+</div>
+
+<nav class="mobile-bar">
+  <button class="mobile-btn" data-mobile="menu"><span>☰</span><span>COUCHES</span></button>
+  <button class="mobile-btn" data-mobile="feed"><span>▤</span><span>FIL INFO</span></button>
+  <button class="mobile-btn primary" data-mobile="report"><span>＋</span><span>SIGNALER</span></button>
+  <button class="mobile-btn" data-mobile="locate"><span>◉</span><span>POSITION</span></button>
+</nav>
+<div class="toast-stack" id="toasts"></div>
+<div class="backdrop hidden" id="backdrop"></div>
+
+<section class="drawer modal hidden" id="reportModal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+  <div class="drawer-head"><h2 id="reportTitle">Signaler un départ de feu</h2><button class="close-btn" data-close>×</button></div>
+  <div class="drawer-body">
+    <div class="notice"><strong>Urgence : appelez d’abord le 112 ou le 18.</strong><br>Éloignez-vous des flammes et des fumées. Ce formulaire crée un signalement local dans ce viewer ; il ne prévient pas automatiquement les secours ni Feux de Forêt.</div>
+    <div class="step-actions"><button class="action-card primary" id="usePositionBtn">◉ UTILISER MA POSITION</button><button class="action-card" id="pickMapBtn">⌖ PLACER SUR LA CARTE</button></div>
+    <form id="reportForm">
+      <div class="form-row"><label for="reportType">Observation</label><select id="reportType"><option value="fumee">Fumée</option><option value="flammes">Flammes visibles</option><option value="odeur">Odeur de brûlé</option><option value="doute">Situation douteuse</option></select></div>
+      <div class="form-row"><label for="reportDesc">Description</label><textarea id="reportDesc" maxlength="500" placeholder="Repères, couleur de la fumée, direction, accessibilité…"></textarea></div>
+      <div class="form-row"><label for="reportPhoto">Photo (facultative)</label><input id="reportPhoto" type="file" accept="image/*" capture="environment"><img id="photoPreview" class="photo-preview hidden" alt="Aperçu de la photo"></div>
+      <div class="coords" id="reportCoords">Localisation non définie.</div>
+    </form>
+  </div>
+  <div class="modal-footer"><a class="btn danger" href="tel:112">APPELER LE 112</a><button class="btn" id="openSourceReport">OUVRIR FEUX DE FORÊT</button><button class="btn primary" id="saveReportBtn">ENREGISTRER</button></div>
+</section>
+
+<section class="drawer modal hidden" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="drawer-head"><h2 id="settingsTitle">Sources et paramètres</h2><button class="close-btn" data-close>×</button></div>
+  <div class="drawer-body">
+    <div class="notice"><strong>Important :</strong> Feux de Forêt est une source communautaire. Les consignes des autorités, le 112/18 et FR-Alert restent prioritaires. FR-Alert est diffusé directement par le réseau mobile et ne nécessite pas d’inscription dans ce viewer.</div>
+    <div class="form-row"><label for="refreshRate">Actualisation automatique</label><select id="refreshRate"><option value="60000">Toutes les minutes</option><option value="120000" selected>Toutes les 2 minutes</option><option value="300000">Toutes les 5 minutes</option><option value="0">Manuelle</option></select></div>
+    <div class="form-row"><label for="tomtomKey">Clé TomTom Traffic (optionnelle)</label><input id="tomtomKey" type="password" autocomplete="off" placeholder="Active la couche trafic temps réel"><div class="coords">La clé reste uniquement dans le stockage local de votre navigateur.</div></div>
+    <div class="form-row"><label>Sources utilisées</label><div class="status-card"><a class="source-link" target="_blank" rel="noopener" href="https://feuxdeforet.fr/nouvelle-aquitaine/gironde/">Feux de Forêt — Gironde</a><a class="source-link" target="_blank" rel="noopener" href="https://feuxdeforet.fr/cartes/feux/">Carte nationale Feux de Forêt</a><a class="source-link" target="_blank" rel="noopener" href="https://www.gironde.fr/deplacements/inforoutes">Département — Inforoutes</a><a class="source-link" target="_blank" rel="noopener" href="https://www.gironde.gouv.fr/">Préfecture de la Gironde</a><a class="source-link" target="_blank" rel="noopener" href="https://www.fr-alert.gouv.fr/">FR-Alert — portail officiel</a></div></div>
+    <button class="btn" id="clearLocalBtn">SUPPRIMER MES SIGNALEMENTS LOCAUX</button>
+  </div>
+  <div class="modal-footer"><button class="btn primary" id="saveSettingsBtn">ENREGISTRER</button></div>
+</section>
+
+<section class="drawer modal hidden" id="myReportsModal" role="dialog" aria-modal="true" aria-labelledby="myReportsTitle">
+  <div class="drawer-head"><h2 id="myReportsTitle">Mes signalements locaux</h2><button class="close-btn" data-close>×</button></div>
+  <div class="drawer-body" id="myReportsBody"></div>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+<script>
+'use strict';
+const CONFIG={
+  firePage:'https://feuxdeforet.fr/nouvelle-aquitaine/gironde/',
+  fireMap:'https://feuxdeforet.fr/cartes/feux/',
+  fireReport:'https://feuxdeforet.fr/signaler/',
+  roadsPage:'https://www.gironde.fr/deplacements/inforoutes',
+  prefecture:'https://www.gironde.gouv.fr/',
+  center:[44.78,-0.62],zoom:8,
+  bbox:{minLat:44.15,maxLat:45.58,minLng:-1.30,maxLng:0.35}
+};
+const SEED_FIRES=[
+ {name:'Mazères',status:'En cours',age:'capture source récente',lat:44.493,lng:-0.258},
+ {name:'Saumos',status:'En cours',age:'capture source récente',lat:44.902,lng:-0.991},
+ {name:'Naujan-et-Postiac',status:'En cours',age:'capture source récente',lat:44.789,lng:-0.181},
+ {name:'Haux',status:'En cours',age:'capture source récente',lat:44.735,lng:-0.369},
+ {name:'Les Églisottes-et-Chalaures',status:'Récent',age:'capture source récente',lat:45.100,lng:-0.041},
+ {name:'Cartelègue',status:'Récent',age:'capture source récente',lat:45.186,lng:-0.581},
+ {name:'Saint-Christoly-de-Blaye',status:'Récent',age:'capture source récente',lat:45.131,lng:-0.509},
+ {name:'Civrac-de-Blaye',status:'Récent',age:'capture source récente',lat:45.112,lng:-0.440}
+];
+const SEED_ROADS=[
+ {name:'RD122 — Branne / Saint-Sulpice-de-Faleyrens',status:'fermée',detail:'Effondrement d’un ouvrage ; déviation par RD122, RD670 et RD936.',lat:44.830,lng:-0.185},
+ {name:'RD115 — Pompignac',status:'fermée',detail:'Effondrement sous chaussée, fermeture pour une durée indéterminée.',lat:44.852,lng:-0.437},
+ {name:'Pont de Bonzac — Saint-Denis-de-Pile',status:'fermé',detail:'Toute circulation interdite sur le pont.',lat:45.016,lng:-0.201},
+ {name:'Pont de Rouergue — La Réole',status:'fermé',detail:'Fermeture à la circulation automobile ; déviations locales.',lat:44.582,lng:-0.039},
+ {name:'Pont de Castets-en-Dorthe — RD15',status:'circulation modifiée',detail:'Alternat et cheminement piéton sécurisé.',lat:44.562,lng:-0.153}
+];
+const state={map:null,fallback:false,baseIndex:0,layers:{},markers:[],fires:[],roads:[],official:[],reports:[],feedFilter:'all',location:null,locationWatch:null,reportCoords:null,reportPhoto:null,refreshTimer:null,settings:{refresh:120000,tomtomKey:''},trafficLayer:null,notificationEnabled:false,knownHashes:new Set(),sourceMode:{fire:'seed',roads:'seed'}};
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+function esc(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function slug(s=''){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
+function nowLabel(){return new Intl.DateTimeFormat('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date())}
+function toast(msg,type=''){const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;$('#toasts').append(el);setTimeout(()=>el.remove(),4500)}
+function setSource(id,ok,text){$('#'+id+'Dot').className='status-dot '+(ok?'ok':'warn');$('#'+id+'Age').textContent=text}
+function hash(s){let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h+s.charCodeAt(i))|0;return String(h)}
+function loadLocal(){try{state.reports=JSON.parse(localStorage.getItem('girondeFireReports')||'[]');state.settings={...state.settings,...JSON.parse(localStorage.getItem('girondeFireSettings')||'{}')};state.knownHashes=new Set(JSON.parse(localStorage.getItem('girondeFireKnown')||'[]'))}catch(e){console.warn(e)}$('#refreshRate').value=String(state.settings.refresh);$('#tomtomKey').value=state.settings.tomtomKey||''}
+function saveLocal(){try{localStorage.setItem('girondeFireReports',JSON.stringify(state.reports));localStorage.setItem('girondeFireSettings',JSON.stringify(state.settings));localStorage.setItem('girondeFireKnown',JSON.stringify([...state.knownHashes].slice(-300)))}catch(e){console.warn('Stockage local indisponible',e)}}
+
+function initMap(){
+ if(window.L){
+   state.map=L.map('map',{zoomControl:false,attributionControl:true,minZoom:7,maxZoom:19}).setView(CONFIG.center,CONFIG.zoom);
+   state.layers={fires:L.layerGroup().addTo(state.map),recent:L.layerGroup().addTo(state.map),reports:L.layerGroup().addTo(state.map),false:L.layerGroup().addTo(state.map),roads:L.layerGroup().addTo(state.map),location:L.layerGroup().addTo(state.map)};
+   state.baseLayers=[
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}),
+    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenTopoMap'}),
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri'})
+   ];state.baseLayers[0].addTo(state.map);
+   state.map.on('click',e=>{if(state.picking){state.reportCoords={lat:e.latlng.lat,lng:e.latlng.lng};state.picking=false;$('#pickMapBtn').classList.remove('primary');openModal('reportModal');updateReportCoords();toast('Position du signalement placée sur la carte.') }});
+   fetch('https://geo.api.gouv.fr/departements/33/communes?format=geojson&geometry=contour').then(r=>r.ok?r.json():null).then(g=>{if(g)L.geoJSON(g,{style:{color:'#5d7f73',weight:.5,fill:false,opacity:.35},interactive:false}).addTo(state.map)}).catch(()=>{});
+ }else{
+   state.fallback=true;$('#map').classList.add('hidden');$('#fallbackMap').classList.remove('hidden');$('#fallbackMap').addEventListener('click',e=>{if(!state.picking)return;const r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;state.reportCoords={lng:CONFIG.bbox.minLng+x*(CONFIG.bbox.maxLng-CONFIG.bbox.minLng),lat:CONFIG.bbox.maxLat-y*(CONFIG.bbox.maxLat-CONFIG.bbox.minLat)};state.picking=false;openModal('reportModal');updateReportCoords();renderAll()});
+   toast('Fond cartographique externe indisponible : mode carte de secours activé.','warn')
+ }
+}
+function icon(type){const cls={fire:'fire-marker',recent:'recent-marker',report:'report-marker',false:'false-marker',road:'road-marker',me:'me-marker'}[type];const txt={fire:'🔥',recent:'🔥',report:'●',false:'×',road:'⛔',me:''}[type];return L.divIcon({className:'',html:`<div class="${cls}">${txt}</div>`,iconSize:[36,36],iconAnchor:[18,18],popupAnchor:[0,-16]})}
+function popupHtml(item,type){
+ let photo=(item.photo&&$('#layer-photos')?.checked!==false)?`<img class="popup-photo" src="${item.photo}" alt="Photo du signalement">`:'';
+ const source=type==='road'?'Département de la Gironde':type==='report'||type==='false'?'Signalement local':'Feux de Forêt';
+ const link=type==='road'?CONFIG.roadsPage:(type==='report'||type==='false'?CONFIG.fireReport:CONFIG.firePage);
+ let localActions='';if(type==='report'||type==='false'){localActions=`<button onclick="window.markFalse('${item.id}')">${type==='false'?'Réactiver':'Marquer fausse alerte'}</button><button onclick="window.deleteReport('${item.id}')">Supprimer</button>`}
+ return `<div class="popup-title">${esc(item.name||item.type||'Signalement')}</div><div>${esc(item.detail||item.description||item.status||'')}</div>${photo}<div class="popup-meta">Source : ${esc(source)} · ${esc(item.age||item.createdLabel||'')}</div><div class="popup-actions"><a href="${link}" target="_blank" rel="noopener">Ouvrir la source</a>${localActions}</div>`
+}
+function fallbackPos(lat,lng){const x=(lng-CONFIG.bbox.minLng)/(CONFIG.bbox.maxLng-CONFIG.bbox.minLng)*100,y=(CONFIG.bbox.maxLat-lat)/(CONFIG.bbox.maxLat-CONFIG.bbox.minLat)*100;return{x:Math.max(2,Math.min(98,x)),y:Math.max(2,Math.min(98,y))}}
+function clearFallbackMarkers(){$$('#fallbackMap .fallback-marker').forEach(e=>e.remove())}
+function addMarker(item,type){
+ if(!Number.isFinite(item.lat)||!Number.isFinite(item.lng))return;
+ if(state.fallback){const p=fallbackPos(item.lat,item.lng),m=document.createElement('button');m.className='fallback-marker '+type;m.style.left=p.x+'%';m.style.top=p.y+'%';m.textContent=type==='road'?'⛔':type==='report'?'●':type==='false'?'×':'🔥';m.title=item.name||item.type;m.onclick=()=>toast((item.name||item.type)+' — '+(item.status||item.detail||item.description||''));$('#fallbackMap').append(m);return}
+ const layer=type==='fire'?state.layers.fires:type==='recent'?state.layers.recent:type==='report'?state.layers.reports:type==='false'?state.layers.false:state.layers.roads;
+ const marker=L.marker([item.lat,item.lng],{icon:icon(type)}).bindPopup(popupHtml(item,type));marker.addTo(layer);marker._data=item;state.markers.push(marker)
+}
+function renderMap(){
+ if(state.fallback)clearFallbackMarkers();else{Object.values(state.layers).forEach(l=>l.clearLayers());state.markers=[]}
+ state.fires.forEach(f=>addMarker(f,f.status.toLowerCase().includes('cours')?'fire':'recent'));
+ state.roads.forEach(r=>addMarker(r,'road'));
+ state.reports.forEach(r=>addMarker(r,r.falseAlert?'false':'report'));
+ if(state.location&&document.querySelector('[data-layer="location"]').checked){
+  if(state.fallback){addMarker({...state.location,name:'Ma position'},'report')}else{L.marker([state.location.lat,state.location.lng],{icon:icon('me')}).addTo(state.layers.location).bindPopup('Ma position');L.circle([state.location.lat,state.location.lng],{radius:state.location.accuracy||30,color:'#287ce0',weight:1,fillOpacity:.08}).addTo(state.layers.location)}
+ }
+ applyLayerVisibility();
+}
+function applyLayerVisibility(){if(state.fallback){const vals={fire:'fires',recent:'recent',report:'reports',false:'false',road:'roads'};$$('.fallback-marker').forEach(m=>{const key=vals[[...m.classList].find(c=>vals[c])];if(key){const cb=document.querySelector(`[data-layer="${key}"]`);m.style.display=cb&&cb.checked?'grid':'none'}});return}
+ ['fires','recent','reports','false','roads','location'].forEach(k=>{const cb=document.querySelector(`[data-layer="${k}"]`);const l=state.layers[k];if(!cb||!l)return;if(cb.checked){if(!state.map.hasLayer(l))l.addTo(state.map)}else if(state.map.hasLayer(l))state.map.removeLayer(l)})}
+function focusItem(item){if(Number.isFinite(item.lat)&&Number.isFinite(item.lng)){closeMobilePanels();if(state.map){state.map.setView([item.lat,item.lng],Math.max(state.map.getZoom(),12));const m=state.markers.find(x=>x._data===item);if(m)m.openPopup()}else toast(item.name||'Élément sélectionné')}else window.open(item.url||CONFIG.firePage,'_blank','noopener')}
+
+function parseFireText(text){
+ const lines=text.replace(/\r/g,'').split('\n').map(l=>l.replace(/[*_#>\[\]]/g,' ').replace(/\s+/g,' ').trim()).filter(Boolean),out=[],seen=new Set();
+ for(const line of lines){
+  let m=line.match(/\b(En cours|Récent|Maîtrisé|Éteint|Signalement|Fausse alerte)\s*33\s*(.+?)(?=Mise à jour|il y a|Voir|$)/i);
+  if(!m)continue;let name=m[2].replace(/^[-–—: ]+|[-–—: ]+$/g,'').trim();if(name.length<2||name.length>70)continue;
+  const key=m[1].toLowerCase()+'|'+name.toLowerCase();if(seen.has(key))continue;seen.add(key);
+  const tm=line.match(/(?:Mise à jour\s*)?(il y a\s+[^|,;]{1,35})/i);out.push({name,status:capitalize(m[1]),age:tm?tm[1]:'mise à jour récente',url:CONFIG.firePage})
+ }
+ return out.slice(0,24)
+}
+function parseRoadText(text){
+ const lines=text.replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(Boolean),out=[],seen=new Set();
+ for(let i=0;i<lines.length;i++){
+  const raw=lines[i].replace(/[*_#>\[\]]/g,' ').replace(/\s+/g,' ').trim();if(!/(RD\s*\d+|pont|route)/i.test(raw)||!/(ferm|alternat|circulation|déviation|travaux)/i.test(raw))continue;
+  let name=raw.replace(/ouvrir x fermer/gi,'').trim();if(name.length>120)name=name.slice(0,120);const key=name.toLowerCase();if(seen.has(key))continue;seen.add(key);
+  const next=lines.slice(i+1,i+4).join(' ').replace(/[*_#>\[\]]/g,' ').replace(/\s+/g,' ').trim();out.push({name,status:/rouvert/i.test(raw+next)?'rouverte':/alternat/i.test(raw+next)?'circulation modifiée':'information Inforoutes',detail:next.slice(0,250),url:CONFIG.roadsPage})
+ }
+ return out.slice(0,20)
+}
+function parseOfficialText(text){
+ const lines=text.replace(/\r/g,'').split('\n').map(l=>l.replace(/[*_#>\[\]]/g,' ').replace(/\s+/g,' ').trim()).filter(Boolean),out=[],seen=new Set();
+ for(const line of lines){if(!/(incendie|feu de forêt|évacuation|vigilance|alerte)/i.test(line)||line.length<18||line.length>180)continue;const key=line.toLowerCase();if(seen.has(key))continue;seen.add(key);out.push({name:line,detail:'Information repérée sur le site de la Préfecture de la Gironde.',age:'veille officielle',type:'official',url:CONFIG.prefecture})}
+ return out.slice(0,10)
+}
+function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase()}
+async function fetchReader(url){
+ const target=url.replace(/^https?:\/\//,'');const attempts=[`https://r.jina.ai/http://${target}?t=${Date.now()}`,`https://api.allorigins.win/raw?url=${encodeURIComponent(url+'?t='+Date.now())}`];
+ for(const u of attempts){try{const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),14000);const r=await fetch(u,{cache:'no-store',signal:ctrl.signal});clearTimeout(t);if(r.ok){const tx=await r.text();if(tx.length>200)return tx}}catch(e){console.debug('source fetch',e)}}throw new Error('Source inaccessible')
+}
+async function geocode(item){if(Number.isFinite(item.lat))return item;const cacheKey='geo33:'+item.name;try{const c=JSON.parse(localStorage.getItem(cacheKey)||'null');if(c&&c.lat)return {...item,...c}}catch{}
+ try{const q=encodeURIComponent(item.name.replace(/RD\s*\d+.*/i,'')+' Gironde');const r=await fetch(`https://api-adresse.data.gouv.fr/search/?q=${q}&limit=1`);const j=await r.json(),c=j.features?.[0]?.geometry?.coordinates;if(c){const v={lng:c[0],lat:c[1]};localStorage.setItem(cacheKey,JSON.stringify(v));return {...item,...v}}}catch(e){}
+ return item
+}
+async function geocodeMany(items){const out=[];for(const item of items){out.push(await geocode(item));await new Promise(r=>setTimeout(r,35))}return out}
+async function refreshData(manual=false){
+ $('#mapStatus').textContent='Actualisation';$('#refreshBtn').classList.add('active');
+ const oldHashes=new Set(state.knownHashes);let fireLive=false,roadLive=false;
+ const fireP=(async()=>{try{const tx=await fetchReader(CONFIG.firePage);let parsed=parseFireText(tx);if(parsed.length){state.fires=await geocodeMany(parsed);fireLive=true;state.sourceMode.fire='live';setSource('fireSource',true,nowLabel())}}catch(e){console.warn(e)}if(!state.fires.length){state.fires=SEED_FIRES.map(x=>({...x,url:CONFIG.firePage}));setSource('fireSource',false,'mode secours')}})();
+ const roadP=(async()=>{try{const tx=await fetchReader(CONFIG.roadsPage);let parsed=parseRoadText(tx);if(parsed.length){state.roads=await geocodeMany(parsed);roadLive=true;state.sourceMode.roads='live';setSource('roadSource',true,nowLabel())}}catch(e){console.warn(e)}if(!state.roads.length){state.roads=SEED_ROADS.map(x=>({...x,url:CONFIG.roadsPage}));setSource('roadSource',false,'mode secours')}})();
+ const prefP=(async()=>{try{const tx=await fetchReader(CONFIG.prefecture);state.official=parseOfficialText(tx);setSource('prefSource',state.official.length>0,state.official.length?nowLabel():'aucune alerte détectée')}catch(e){state.official=[];setSource('prefSource',false,'lien officiel')}})();
+ await Promise.all([fireP,roadP,prefP]);
+ const allNew=[...state.fires.filter(f=>f.status.toLowerCase().includes('cours')).map(f=>({txt:`Feu en cours — ${f.name}`,body:f.age})),...state.official.map(o=>({txt:o.name,body:o.detail}))];
+ for(const n of allNew){const h=hash(n.txt);if(!oldHashes.has(h)&&state.knownHashes.size>0)notify(n.txt,n.body);state.knownHashes.add(h)}saveLocal();
+ renderAll();$('#lastUpdate').textContent='· '+nowLabel();$('#mapStatus').textContent=fireLive?'Source synchronisée':'Données de secours';$('#refreshBtn').classList.remove('active');if(manual)toast(fireLive||roadLive?'Sources actualisées.':'Sources distantes indisponibles : données de secours affichées.','warn')
+}
+function renderAll(){renderMap();renderFeed();renderSummary()}
+function renderSummary(){const active=state.fires.filter(f=>f.status.toLowerCase().includes('cours')).length;$('#incidentSummary').textContent=`${active} feu${active>1?'x':''} en cours`;$('#officialCount').textContent=state.official.length}
+function feedData(){
+ const f=state.fires.map(x=>({...x,feedType:x.status.toLowerCase().includes('cours')?'fire':'recent',title:`${x.status} — ${x.name}`,description:x.detail||'Incident référencé par Feux de Forêt.',source:'Feux de Forêt'}));
+ const r=state.roads.map(x=>({...x,feedType:'road',title:`Route — ${x.name}`,description:x.detail||x.status,source:'Inforoutes Gironde'}));
+ const o=state.official.map(x=>({...x,feedType:'official',title:x.name,description:x.detail,source:'Préfecture'}));
+ const u=state.reports.map(x=>({...x,feedType:x.falseAlert?'false':'report',title:`${x.falseAlert?'Fausse alerte locale':'Signalement local'} — ${x.type}`,description:x.description||'Aucune description.',source:'Local'}));
+ return [...f,...o,...r,...u]
+}
+function renderFeed(){let data=feedData();if(state.feedFilter!=='all')data=data.filter(x=>state.feedFilter==='fire'?['fire','recent','report','false'].includes(x.feedType):x.feedType===state.feedFilter);const q=$('#searchInput').value.trim().toLowerCase();if(q)data=data.filter(x=>(x.title+' '+x.description).toLowerCase().includes(q));
+ const el=$('#feedList');if(!data.length){el.innerHTML='<div class="feed-empty">Aucun élément pour ce filtre.</div>';return}
+ el.innerHTML=data.map((x,i)=>{const cls=x.feedType==='fire'?'fire':x.feedType==='recent'?'recent':x.feedType==='road'?'road':x.feedType==='official'?'official':'report';const hcls=x.feedType==='fire'?'red':x.feedType==='recent'?'orange':x.feedType==='report'?'blue':'gray';const icon=x.feedType==='road'?'⛔':x.feedType==='official'?'🔔':x.feedType==='report'?'●':x.feedType==='false'?'×':'🔥';return `<article class="feed-item" data-feed-index="${i}"><div class="feed-icon ${cls}">${icon}</div><div><h3 class="${hcls}">${esc(x.title)}</h3><p>${esc(x.description)}</p><div class="feed-meta"><span>${esc(x.age||x.createdLabel||x.status||'')}</span><span class="tag ${x.source==='Local'?'local':'source'}">${esc(x.source)}</span></div></div></article>`}).join('');
+ $$('.feed-item').forEach((e,i)=>e.onclick=()=>focusItem(data[i]))
+}
+
+function locate(follow=true){if(!navigator.geolocation){toast('Géolocalisation non disponible.','error');return}$('#locateBtn').classList.add('active');navigator.geolocation.getCurrentPosition(pos=>{state.location={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy};renderMap();if(state.map&&follow)state.map.setView([state.location.lat,state.location.lng],13);$('#locateBtn').classList.remove('active');toast('Position actualisée.')},e=>{$('#locateBtn').classList.remove('active');toast('Position non accessible : autorisez la géolocalisation.','warn')},{enableHighAccuracy:true,timeout:12000,maximumAge:20000})}
+function startTracking(){if(state.locationWatch!==null){navigator.geolocation.clearWatch(state.locationWatch);state.locationWatch=null;toast('Suivi de position arrêté.');return}if(!navigator.geolocation)return;state.locationWatch=navigator.geolocation.watchPosition(pos=>{state.location={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy};renderMap() },()=>{}, {enableHighAccuracy:true,maximumAge:5000});toast('Suivi de position activé.')}
+async function searchPlace(){const q=$('#searchInput').value.trim();if(!q){renderFeed();return}renderFeed();try{const r=await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q+' Gironde')}&limit=1`),j=await r.json(),c=j.features?.[0]?.geometry?.coordinates;if(c&&state.map){state.map.setView([c[1],c[0]],14);L.popup().setLatLng([c[1],c[0]]).setContent(esc(j.features[0].properties.label)).openOn(state.map);closeMobilePanels()}else if(!c)toast('Lieu non trouvé.','warn')}catch(e){toast('Recherche distante indisponible.','warn')}}
+function changeBase(){if(!state.map){toast('Changement de fond disponible avec la carte en ligne.','warn');return}state.map.removeLayer(state.baseLayers[state.baseIndex]);state.baseIndex=(state.baseIndex+1)%state.baseLayers.length;state.baseLayers[state.baseIndex].addTo(state.map);state.baseLayers[state.baseIndex].bringToBack();toast(['Fond OpenStreetMap','Fond topographique','Orthophoto Esri'][state.baseIndex])}
+function toggleTraffic(on){if(!state.map)return;if(!on){if(state.trafficLayer){state.map.removeLayer(state.trafficLayer);state.trafficLayer=null}return}const key=state.settings.tomtomKey;if(!key){document.querySelector('[data-layer="traffic"]').checked=false;openModal('settingsModal');toast('Ajoutez une clé TomTom Traffic pour activer cette couche.','warn');return}state.trafficLayer=L.tileLayer(`https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${encodeURIComponent(key)}&tileSize=256`,{opacity:.72,maxZoom:19,attribution:'Traffic © TomTom'}).addTo(state.map);toast('Couche trafic temps réel activée.')}
+
+function openModal(id){$('#backdrop').classList.remove('hidden');$$('.drawer.modal').forEach(m=>m.classList.add('hidden'));$('#'+id).classList.remove('hidden');if(id==='myReportsModal')renderMyReports()}
+function closeModals(){$('#backdrop').classList.add('hidden');$$('.drawer.modal').forEach(m=>m.classList.add('hidden'))}
+function closeMobilePanels(){$('#sidebar').classList.remove('open');$('#feedPanel').classList.remove('open');$('#searchWrap').classList.remove('open')}
+function openReport(){state.reportCoords=null;state.reportPhoto=null;$('#reportForm').reset();$('#photoPreview').classList.add('hidden');updateReportCoords();openModal('reportModal')}
+function updateReportCoords(){$('#reportCoords').textContent=state.reportCoords?`Position : ${state.reportCoords.lat.toFixed(6)}, ${state.reportCoords.lng.toFixed(6)}`:'Localisation non définie.'}
+function pickMap(){closeModals();closeMobilePanels();state.picking=true;$('#pickMapBtn').classList.add('primary');toast('Touchez la carte pour placer le signalement.')}
+async function compressPhoto(file){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{let w=img.width,h=img.height,max=1280;if(w>max||h>max){const s=Math.min(max/w,max/h);w=Math.round(w*s);h=Math.round(h*s)}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);resolve(c.toDataURL('image/jpeg',.76))};img.onerror=reject;img.src=url})}
+async function saveReport(){if(!state.reportCoords){toast('Définissez la position du signalement.','warn');return}const type=$('#reportType').value,desc=$('#reportDesc').value.trim(),r={id:'r'+Date.now(),type,description:desc,lat:state.reportCoords.lat,lng:state.reportCoords.lng,photo:state.reportPhoto,falseAlert:false,createdAt:Date.now(),createdLabel:'créé '+nowLabel(),status:'Non validé'};state.reports.unshift(r);try{saveLocal()}catch(e){r.photo=null;saveLocal();toast('Photo trop volumineuse : signalement enregistré sans photo.','warn')}closeModals();renderAll();focusItem(r);toast('Signalement local enregistré. Pensez à appeler le 112/18 et à le transmettre via Feux de Forêt.')}
+window.markFalse=id=>{const r=state.reports.find(x=>x.id===id);if(r){r.falseAlert=!r.falseAlert;saveLocal();renderAll();if(state.map)state.map.closePopup();toast(r.falseAlert?'Signalement classé comme fausse alerte locale.':'Signalement réactivé.')}};
+window.deleteReport=id=>{state.reports=state.reports.filter(x=>x.id!==id);saveLocal();renderAll();if(state.map)state.map.closePopup();toast('Signalement supprimé.')};
+function renderMyReports(){const el=$('#myReportsBody');if(!state.reports.length){el.innerHTML='<div class="feed-empty">Aucun signalement local enregistré.</div>';return}el.innerHTML=state.reports.map(r=>`<div class="status-card"><strong>${esc(r.type)} ${r.falseAlert?'— fausse alerte':''}</strong><p style="font-size:11px;color:#c6d2d8">${esc(r.description||'Sans description')}</p><div class="coords">${r.lat.toFixed(5)}, ${r.lng.toFixed(5)} · ${esc(r.createdLabel)}</div><div class="popup-actions"><button onclick="window.focusReport('${r.id}')">Voir</button><button onclick="window.markFalse('${r.id}')">${r.falseAlert?'Réactiver':'Fausse alerte'}</button><button onclick="window.deleteReport('${r.id}')">Supprimer</button></div></div>`).join('')}
+window.focusReport=id=>{const r=state.reports.find(x=>x.id===id);if(r){closeModals();focusItem(r)}};
+
+async function enableNotifications(){if(!('Notification'in window)){toast('Notifications non prises en charge.','warn');return}if(!window.isSecureContext){toast('Les notifications nécessitent un hébergement HTTPS.','warn');return}const p=await Notification.requestPermission();state.notificationEnabled=p==='granted';toast(state.notificationEnabled?'Notifications activées pendant l’ouverture du viewer.':'Notifications refusées.','warn')}
+function notify(title,body){if(state.notificationEnabled&&Notification.permission==='granted')new Notification(title,{body,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="50" font-size="50">🔥</text></svg>'})}
+function saveSettings(){state.settings.refresh=Number($('#refreshRate').value);state.settings.tomtomKey=$('#tomtomKey').value.trim();saveLocal();scheduleRefresh();closeModals();toast('Paramètres enregistrés.')}
+function scheduleRefresh(){clearInterval(state.refreshTimer);if(state.settings.refresh>0)state.refreshTimer=setInterval(()=>refreshData(false),state.settings.refresh)}
+
+function wire(){
+ $('#zoomInBtn').onclick=()=>state.map?state.map.zoomIn():toast('Zoom disponible en mode carte en ligne.');$('#zoomOutBtn').onclick=()=>state.map?state.map.zoomOut():toast('Zoom disponible en mode carte en ligne.');$('#locateBtn').onclick=()=>locate();$('#locateBtn').ondblclick=startTracking;$('#baseBtn').onclick=changeBase;$('#refreshBtn').onclick=()=>refreshData(true);$('#searchGo').onclick=searchPlace;$('#searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')searchPlace()});$('#searchInput').addEventListener('input',renderFeed);$('#searchToggle').onclick=()=>$('#searchWrap').classList.toggle('open');$('#settingsBtn').onclick=()=>openModal('settingsModal');$('#notificationBtn').onclick=enableNotifications;$('#officialBtn').onclick=()=>{state.feedFilter='official';setFeedTab('official');$('#feedPanel').classList.add('open');renderFeed()};
+ $$('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='report')openReport();else if(a==='feed')$('#feedPanel').classList.add('open');else if(a==='myreports')openModal('myReportsModal');else if(a==='alerts'){$('#feedPanel').classList.add('open');state.feedFilter='official';setFeedTab('official');renderFeed()}});
+ $$('[data-layer]').forEach(c=>c.onchange=()=>{if(c.dataset.layer==='traffic')toggleTraffic(c.checked);else applyLayerVisibility()});$$('.tab').forEach(t=>t.onclick=()=>{state.feedFilter=t.dataset.feed;setFeedTab(t.dataset.feed);renderFeed()});
+ $$('[data-close]').forEach(b=>b.onclick=closeModals);$('#backdrop').onclick=closeModals;$('#usePositionBtn').onclick=()=>{if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(p=>{state.reportCoords={lat:p.coords.latitude,lng:p.coords.longitude};updateReportCoords();toast('Position utilisée.')},()=>toast('Impossible d’obtenir la position.','warn'),{enableHighAccuracy:true,timeout:12000})};$('#pickMapBtn').onclick=pickMap;
+ $('#reportPhoto').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{state.reportPhoto=await compressPhoto(f);$('#photoPreview').src=state.reportPhoto;$('#photoPreview').classList.remove('hidden')}catch{toast('Photo illisible.','error')}};$('#saveReportBtn').onclick=saveReport;$('#openSourceReport').onclick=()=>window.open(CONFIG.fireReport,'_blank','noopener');$('#saveSettingsBtn').onclick=saveSettings;$('#clearLocalBtn').onclick=()=>{if(confirm('Supprimer tous les signalements locaux ?')){state.reports=[];saveLocal();renderAll();toast('Signalements locaux supprimés.')}};
+ $$('[data-mobile]').forEach(b=>b.onclick=()=>{const a=b.dataset.mobile;if(a==='menu')$('#sidebar').classList.toggle('open');if(a==='feed')$('#feedPanel').classList.toggle('open');if(a==='report')openReport();if(a==='locate')locate()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModals();closeMobilePanels();state.picking=false}});
+}
+function setFeedTab(name){$$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.feed===name))}
+async function boot(){loadLocal();initMap();wire();state.fires=SEED_FIRES.map(x=>({...x,url:CONFIG.firePage}));state.roads=SEED_ROADS.map(x=>({...x,url:CONFIG.roadsPage}));renderAll();scheduleRefresh();setTimeout(()=>refreshData(false),450);if(navigator.permissions){navigator.permissions.query({name:'geolocation'}).then(p=>{if(p.state==='granted')locate(false)}).catch(()=>{})}}
+boot();
+</script>
+</body>
+</html>
