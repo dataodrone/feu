@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "Feux & fumées",
+  "short_name": "Feux & fumées",
+  "description": "Carte interactive de suivi des incendies, foyers satellites, fumées et routes fermées.",
+  "lang": "fr-FR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07131e",
+  "theme_color": "#8a1017",
+  "icons": [
+    {
+      "src": "./icone-feux-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icone-feux-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
